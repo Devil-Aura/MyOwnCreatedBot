@@ -6,6 +6,6 @@ class Config:
     BOT_TOKEN = getenv("BOT_TOKEN", "")
     CHID = int(getenv("CHID", "-1002432405855"))  # Ensure bot is admin here
     SUDO = list(map(int, getenv("SUDO", "6040503076").split()))
-    MONGO_URI = getenv("MONGO_URI", "mongodb+srv://<username>:<password>@cluster0.mongodb.net/?retryWrites=true")
+    MONGO_URI = getenv("MONGO_URI", ""mongodb+srv://<tyuvie>:<lxYx2uM6elNxd9BR>@cluster0.ybi1b.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 cfg = Config()
