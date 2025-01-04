@@ -1,1 +1,1 @@
-FLASK_PORT = 5000  # Define your Flask port here
+FLASK_PORT = 8080  # Define your Flask port here
