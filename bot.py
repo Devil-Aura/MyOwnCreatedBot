@@ -2,7 +2,7 @@ from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, 
 from pyrogram import filters, Client, errors
 from pyrogram.errors import UserNotParticipant, FloodWait
 from database import add_user, add_group, all_users, all_groups, users, remove_user
-from configs import cfg
+from config import cfg
 import random
 import asyncio
 import logging
