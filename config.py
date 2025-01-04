@@ -5,5 +5,5 @@ class Config:
     CHID = int(getenv("CHID", "-1002432405855"))  # Channel ID
     SUDO = list(map(int, getenv("SUDO", "6040503076").split()))
     MONGO_URI = getenv("MONGO_URI", "mongodb+srv://<tyuvie>:<lxYx2uM6elNxd9BR>@cluster0.ybi1b.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-    FLASK_PORT = int(getenv("FLASK_PORT", 5000))  # Default Flask port
+    FLASK_PORT = int(getenv("FLASK_PORT", 8080))  # Default Flask port
 cfg = Config()
