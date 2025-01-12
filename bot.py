@@ -69,12 +69,17 @@ async def start(_, m: Message):
         )
         return
 
+    # Keyboard with updated buttons
     keyboard = InlineKeyboardMarkup(
         [
             [
                 InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
                 InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-            ]
+            ],
+            [
+                InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Request_acceept_bot?startchannel"),
+                InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
+            ],
         ]
     )
     add_user(m.from_user.id)
@@ -82,7 +87,9 @@ async def start(_, m: Message):
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
             f"**🦊 Hello {m.from_user.mention}!\n"
-            f"I'm an auto approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
+            f"🚀 I am the **FASTEST BOT**, faster than light! 🌠\n"
+            f"⏱ I approve join requests in just **0.5 seconds**.\n\n"
+            "I'm an auto approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
             "I can approve users in Groups/Channels. Add me to your chat and promote me to admin with add members permission.\n\n"
             "__Powered By : @World_Fastest_Bots __**"
         ),
@@ -169,5 +176,5 @@ async def broadcast(_, m: Message):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Main Run ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-logger.info("Bot is starting...")
+logger.info("🚀 Bot is alive and running faster than light!")
 app.run()
