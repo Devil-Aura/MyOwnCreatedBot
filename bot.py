@@ -1,11 +1,14 @@
 import logging
-import random
 import asyncio
 from pyrogram import Client, filters, errors
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from pyrogram.errors import UserNotParticipant
 from pyrogram.errors.exceptions.flood_420 import FloodWait
-from database import add_user, add_group, all_users, all_groups, users, remove_user
+from database import (
+    add_user, add_group, all_users, all_groups, users,
+    remove_user, ban_user, unban_user, is_banned,
+    disable_broadcast_for_user, is_broadcast_disabled,
+    set_welcome_message, get_welcome_message
+)
 from config import cfg
 
 # Configure Logging
@@ -27,14 +30,21 @@ app = Client(
 
 @app.on_chat_join_request(filters.group | filters.channel)
 async def approve(_, m: Message):
+    if is_banned(m.from_user.id):
+        return
     try:
         op = m.chat
         kk = m.from_user
         add_group(op.id)
         await app.approve_chat_join_request(op.id, kk.id)
+        welcome_message = get_welcome_message(op.id) or "Welcome to {group}!"
         await app.send_message(
             kk.id,
-            f"**Hello {kk.mention}!\nWelcome To {op.title}\n\n__Powered By : @World_Fastest_Bots __**",
+            welcome_message.format(
+                group=op.title,
+                username=kk.username or "User",
+                mention=kk.mention,
+            ),
         )
         add_user(kk.id)
     except errors.PeerIdInvalid:
@@ -46,6 +56,10 @@ async def approve(_, m: Message):
 
 @app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
+    if is_banned(m.from_user.id):
+        await m.reply("🚫 You are banned from using this bot!")
+        return
+
     try:
         await app.get_chat_member(cfg.CHID, m.from_user.id)
     except errors.UserNotParticipant:
@@ -69,7 +83,6 @@ async def start(_, m: Message):
         )
         return
 
-    # Keyboard with updated buttons
     keyboard = InlineKeyboardMarkup(
         [
             [
@@ -86,62 +99,59 @@ async def start(_, m: Message):
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
-            f"**🦊 Hello {m.from_user.mention}!\n"
-            f"🚀 I am the **FASTEST BOT**, faster than light! 🌠\n"
-            f"⏱ I approve join requests in just **0.5 seconds**.\n\n"
-            "I'm an auto approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-            "I can approve users in Groups/Channels. Add me to your chat and promote me to admin with add members permission.\n\n"
+            f"**🙋🏻‍♂️Hello {m.from_user.mention}!\n"
+            f"🚀 I am the FASTEST BOT, faster than light ⚡!"
+            f" I approve join requests in just 0.5 seconds.\n\n**"
+           <blockquote> "I'm an auto approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
+            "I can approve users in Groups/Channels. Add me to your chat and promote me to admin with add members permission.\n\n" </blockquote>
             "__Powered By : @World_Fastest_Bots __**"
         ),
         reply_markup=keyboard,
     )
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Handling ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ New Features ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_callback_query(filters.regex("chk"))
-async def check_again(_, cb: CallbackQuery):
-    try:
-        await app.get_chat_member(cfg.CHID, cb.from_user.id)
-    except errors.UserNotParticipant:
-        await cb.answer(
-            "🙅‍♂️ You are not joined my channel. First join the channel, then check again. 🙅‍♂️",
-            show_alert=True,
-        )
+@app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
+async def stats(_, m: Message):
+    active_users = len(all_users())
+    banned_users = len(users.get_banned_users())
+    deactivated_users = len(users.get_deactivated_users())
+    await m.reply_text(
+        f"📊 **Bot Statistics:**\n\n"
+        f"👤 **Active Users:** `{active_users}`\n"
+        f"🚫 **Banned Users:** `{banned_users}`\n"
+        f"🗿 **Deactivated Users:** `{deactivated_users}`"
+    )
+
+@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
+async def ban_user_command(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/ban user_id`")
         return
 
-    keyboard = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
-                InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-            ]
-        ]
-    )
-    await cb.edit_message_text(
-        text=(
-            f"**🦊 Hello {cb.from_user.mention}!\n"
-            f"I'm an auto approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-            "I can approve users in Groups/Channels. Add me to your chat and promote me to admin with add members permission.\n\n"
-            "__Powered By : @World_Fastest_Bots __**"
-        ),
-        reply_markup=keyboard,
-    )
+    user_id = int(m.command[1])
+    ban_user(user_id)
+    await m.reply(f"🚫 User `{user_id}` has been banned from using this bot.")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Database Stats ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@app.on_message(filters.command("welcome") & filters.user(cfg.SUDO))
+async def set_welcome(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/welcome your_message`")
+        return
 
-@app.on_message(filters.command("users") & filters.user(cfg.SUDO))
-async def show_stats(_, m: Message):
-    num_users = len(all_users())
-    num_groups = len(all_groups())
-    total = num_users + num_groups
-    await m.reply_text(
-        text=(
-            f"🍀 **Chat Stats:** 🍀\n\n"
-            f"🙋‍♂️ Users: `{num_users}`\n"
-            f"👥 Groups: `{num_groups}`\n"
-            f"🚧 Total Users & Groups: `{total}`"
-        )
-    )
+    welcome_message = m.text.split(" ", 1)[1]
+    set_welcome_message(cfg.CHID, welcome_message)
+    await m.reply("✅ Welcome message has been updated.")
+
+@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
+async def disable_broadcast(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/disable_broadcast user_id`")
+        return
+
+    user_id = int(m.command[1])
+    disable_broadcast_for_user(user_id)
+    await m.reply(f"🚫 Broadcasts have been disabled for user `{user_id}`.")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Broadcast ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -153,6 +163,8 @@ async def broadcast(_, m: Message):
 
     for user in all_users_data.find():
         user_id = user["user_id"]
+        if is_broadcast_disabled(user_id):
+            continue
         try:
             await m.reply_to_message.copy(int(user_id))
             success += 1
