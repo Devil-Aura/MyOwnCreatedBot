@@ -7,5 +7,6 @@ class Config:
     CHID = int(getenv("CHID", "-1002432405855"))
     SUDO = list(map(int, getenv("SUDO", "6040503076").split()))
     MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+    LOG_CHANNEL = int(getenv("LOG_CHANNEL", "-1002432405855"))  # Log channel to track user and group activities
     FLASK_PORT = int(getenv("FLASK_PORT", 9090))  # Changed port to 8080
 cfg = Config()
