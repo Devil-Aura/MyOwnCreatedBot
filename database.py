@@ -7,6 +7,8 @@ client = MongoClient(cfg.MONGO_URI)
 users = client['main']['users']
 groups = client['main']['groups']
 welcome_messages = client['main']['welcome_messages']
+user_logs = client['main']['user_logs']  # For logging user data
+user_channels = client['main']['user_channels']  # To map users to groups/channels
 
 # Check if a user exists in the database
 def already_db(user_id):
@@ -19,9 +21,15 @@ def already_dbg(chat_id):
     return bool(group)
 
 # Add a user to the database
-def add_user(user_id):
+def add_user(user_id, username=None):
     if not already_db(user_id):
-        users.insert_one({"user_id": str(user_id), "banned": False, "deactivated": False, "broadcast_disabled": False})
+        users.insert_one({
+            "user_id": str(user_id),
+            "username": username,
+            "banned": False,
+            "deactivated": False,
+            "broadcast_disabled": False
+        })
 
 # Remove a user from the database
 def remove_user(user_id):
@@ -33,13 +41,22 @@ def add_group(chat_id):
     if not already_dbg(chat_id):
         groups.insert_one({"chat_id": str(chat_id)})
 
-# Get the total count of users
-def all_users():
-    return users.count_documents({"banned": False, "deactivated": False})
+# Log user data (for logging in log channel)
+def log_user_data(user_id, username, log_channel):
+    user_data = {
+        "user_id": str(user_id),
+        "username": username,
+        "log_channel": str(log_channel)
+    }
+    user_logs.insert_one(user_data)
 
-# Get the total count of groups
+# Get all users
+def all_users():
+    return list(users.find({"banned": False, "deactivated": False}))
+
+# Get all groups
 def all_groups():
-    return groups.count_documents({})
+    return list(groups.find())
 
 # Mark a user as banned
 def ban_user(user_id):
@@ -95,3 +112,20 @@ def get_welcome_message(chat_id):
 # Get the total count of banned users
 def count_banned_users():
     return users.count_documents({"banned": True})
+
+# Add user-channel mapping
+def add_user_channel(user_id, chat_id, chat_name, chat_url):
+    user_channels.insert_one({
+        "user_id": str(user_id),
+        "chat_id": str(chat_id),
+        "chat_name": chat_name,
+        "chat_url": chat_url
+    })
+
+# Get all channels/groups for a user
+def get_user_channels(user_id):
+    return list(user_channels.find({"user_id": str(user_id)}))
+
+# Get all user-channel mappings
+def get_all_user_channels():
+    return list(user_channels.find())
