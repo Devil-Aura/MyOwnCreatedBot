@@ -1,1 +1,1 @@
-gunicorn app:app --bind 0.0.0.0:9478 & python3 bot.py
+gunicorn app:app --bind 0.0.0.0:9543 & python3 bot.py
