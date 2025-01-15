@@ -60,11 +60,13 @@ async def start(_, m: Message):
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
-            f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n"
-            f"🚀 I am the FASTEST BOT, faster than light ⚡!\n"
-            f"I approve join requests in just 0.5 seconds.\n\n"
-            f"💡 Add me to your chat and promote me to admin with 'Add Members' permission.**"
-        ),
+             f"**🙋🏻‍♂️Hello {m.from_user.mention}!\n"
+            f"🚀 I am the FASTEST BOT, faster than light ⚡!"
+            f" I approve join requests in just 0.5 seconds.\n\n"
+            f" <blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
+            f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
+            f"Powered By : @World_Fastest_Bots**"
+       ),
         reply_markup=keyboard,
     )
 
