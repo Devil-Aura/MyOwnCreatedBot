@@ -29,8 +29,7 @@ app = Client(
 
 LOG_CHANNEL = cfg.LOG_CHANNEL
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Start Command ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+# Start Command
 @app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
     if is_banned(m.from_user.id):
@@ -70,8 +69,7 @@ async def start(_, m: Message):
         reply_markup=keyboard,
     )
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ User Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+# Stats Command
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
 async def stats(_, m: Message):
     active_users = len(all_users())
@@ -84,23 +82,18 @@ async def stats(_, m: Message):
         f"🔕 **Disabled Broadcast Users:** `{disabled_broadcast_users}`"
     )
 
-@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
-async def ban_user_command(_, m: Message):
+# Set Welcome Message Command
+@app.on_message(filters.command("set_welcome_msg") & filters.user(cfg.SUDO))
+async def set_welcome_msg(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("Usage: `/ban user_id`")
+        await m.reply("Usage: `/set_welcome_msg <message>`")
         return
 
-    try:
-        user_id = int(m.command[1])
-        ban_user(user_id)
-        
-        # Disable broadcast for banned user
-        disable_broadcast_for_user(user_id)
-        
-        await m.reply(f"🚫 User `{user_id}` has been banned from using this bot and their broadcast has been disabled.")
-    except ValueError:
-        await m.reply("❌ Invalid user ID. Please provide a numeric value.")
+    message = " ".join(m.command[1:])
+    set_welcome_message(m.chat.id, message)
+    await m.reply(f"✅ Welcome message set to: {message}")
 
+# User Channels Command
 @app.on_message(filters.command("user_channels") & filters.user(cfg.SUDO))
 async def user_channels(_, m: Message):
     if len(m.command) < 2:
@@ -119,41 +112,83 @@ async def user_channels(_, m: Message):
     except ValueError:
         await m.reply("❌ Invalid user ID. Please provide a numeric value.")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Broadcast ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Disable Broadcast Command
+@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
+async def disable_broadcast(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/disable_broadcast user_id`")
+        return
 
-@app.on_message(filters.command("bcast") & filters.user(cfg.SUDO))
-async def broadcast(_, m: Message):
-    active_users = all_users()
-    reply = await m.reply_text("`⚡️ Processing broadcast...`")
-    success, failed, deactivated, blocked = 0, 0, 0, 0
+    try:
+        user_id = int(m.command[1])
+        disable_broadcast_for_user(user_id)
+        await m.reply(f"🚫 Broadcast disabled for user `{user_id}`.")
+    except ValueError:
+        await m.reply("❌ Invalid user ID. Please provide a numeric value.")
 
-    for user in active_users:
-        if is_broadcast_disabled(user["user_id"]):
-            deactivated += 1
-            continue  # Skip disabled users
+# Enable Broadcast Command
+@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
+async def enable_broadcast(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/enable_broadcast user_id`")
+        return
 
-        try:
-            await m.reply_to_message.copy(int(user["user_id"]))
-            success += 1
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-            await m.reply_to_message.copy(int(user["user_id"]))
-        except errors.InputUserDeactivated:
-            remove_user(user["user_id"])
-            deactivated += 1
-        except errors.UserIsBlocked:
-            blocked += 1
-        except Exception:
-            failed += 1
+    try:
+        user_id = int(m.command[1])
+        enable_broadcast(user_id)
+        await m.reply(f"✅ Broadcast enabled for user `{user_id}`.")
+    except ValueError:
+        await m.reply("❌ Invalid user ID. Please provide a numeric value.")
 
-    await reply.edit(
-        f"✅ Successfully broadcasted to `{success}` users.\n"
-        f"❌ Failed to send to `{failed}` users.\n"
-        f"👾 `{blocked}` users blocked the bot.\n"
-        f"👻 `{deactivated}` accounts were deactivated."
-    )
+# Show Disabled Broadcast Users Command
+@app.on_message(filters.command("show_disable_broadcast_users") & filters.user(cfg.SUDO))
+async def show_disabled_broadcast_users(_, m: Message):
+    disabled_users = [user for user in all_users() if is_broadcast_disabled(user["user_id"])]
+    if not disabled_users:
+        await m.reply("🚫 No users have disabled broadcast.")
+        return
+    text = "\n".join([f"• User ID: `{user['user_id']}`" for user in disabled_users])
+    await m.reply(f"📜 **Users with Disabled Broadcast:**\n\n{text}")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Main Run ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Ban User Command
+@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
+async def ban_user_command(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/ban user_id`")
+        return
 
+    try:
+        user_id = int(m.command[1])
+        ban_user(user_id)
+        disable_broadcast_for_user(user_id)
+        await m.reply(f"🚫 User `{user_id}` has been banned from using this bot and their broadcast has been disabled.")
+    except ValueError:
+        await m.reply("❌ Invalid user ID. Please provide a numeric value.")
+
+# Unban User Command
+@app.on_message(filters.command("unban") & filters.user(cfg.SUDO))
+async def unban_user_command(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/unban user_id`")
+        return
+
+    try:
+        user_id = int(m.command[1])
+        unban_user(user_id)
+        await m.reply(f"✅ User `{user_id}` has been unbanned.")
+    except ValueError:
+        await m.reply("❌ Invalid user ID. Please provide a numeric value.")
+
+# Show Banned Users Command
+@app.on_message(filters.command("show_banned_users") & filters.user(cfg.SUDO))
+async def show_banned_users(_, m: Message):
+    banned_users = [user for user in all_users() if is_banned(user["user_id"])]
+    if not banned_users:
+        await m.reply("🚫 No banned users.")
+        return
+    text = "\n".join([f"• User ID: `{user['user_id']}`" for user in banned_users])
+    await m.reply(f"📜 **Banned Users:**\n\n{text}")
+
+# Run the Bot
 logger.info("🚀 Bot is alive and running faster than light!")
 app.run()
