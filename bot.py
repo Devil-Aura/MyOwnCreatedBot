@@ -76,10 +76,12 @@ async def start(_, m: Message):
 async def stats(_, m: Message):
     active_users = len(all_users())
     banned_users = users.count_documents({"banned": True})
+    disabled_broadcast_users = len([user for user in all_users() if is_broadcast_disabled(user["user_id"])])
     await m.reply_text(
         f"📊 **Bot Statistics:**\n\n"
         f"👤 **Active Users:** `{active_users}`\n"
-        f"🚫 **Banned Users:** `{banned_users}`"
+        f"🚫 **Banned Users:** `{banned_users}`\n"
+        f"🔕 **Disabled Broadcast Users:** `{disabled_broadcast_users}`"
     )
 
 @app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
@@ -91,7 +93,11 @@ async def ban_user_command(_, m: Message):
     try:
         user_id = int(m.command[1])
         ban_user(user_id)
-        await m.reply(f"🚫 User `{user_id}` has been banned from using this bot.")
+        
+        # Disable broadcast for banned user
+        disable_broadcast_for_user(user_id)
+        
+        await m.reply(f"🚫 User `{user_id}` has been banned from using this bot and their broadcast has been disabled.")
     except ValueError:
         await m.reply("❌ Invalid user ID. Please provide a numeric value.")
 
@@ -122,6 +128,10 @@ async def broadcast(_, m: Message):
     success, failed, deactivated, blocked = 0, 0, 0, 0
 
     for user in active_users:
+        if is_broadcast_disabled(user["user_id"]):
+            deactivated += 1
+            continue  # Skip disabled users
+
         try:
             await m.reply_to_message.copy(int(user["user_id"]))
             success += 1
