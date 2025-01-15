@@ -11,8 +11,7 @@ welcome_messages = client['main']['welcome_messages']
 user_logs = client['main']['user_logs']
 user_channels = client['main']['user_channels']
 
-#━━━━━━━━━━━━━━━━━━━━━━━ User Functions ━━━━━━━━━━━━━━━━━━━━━━━
-
+# User Functions
 def already_db(user_id):
     return bool(users.find_one({"user_id": str(user_id)}))
 
@@ -38,9 +37,6 @@ def unban_user(user_id):
 def is_banned(user_id):
     user = users.find_one({"user_id": str(user_id)})
     return user.get("banned", False) if user else False
-
-def mark_deactivated(user_id):
-    users.update_one({"user_id": str(user_id)}, {"$set": {"deactivated": True}}, upsert=True)
 
 def disable_broadcast_for_user(user_id):
     users.update_one({"user_id": str(user_id)}, {"$set": {"broadcast_disabled": True}}, upsert=True)
@@ -68,8 +64,7 @@ def count_banned_users():
 def count_deactivated_users():
     return users.count_documents({"deactivated": True})
 
-#━━━━━━━━━━━━━━━━━━━━━━━ Group Functions ━━━━━━━━━━━━━━━━━━━━━━━
-
+# Group Functions
 def already_dbg(chat_id):
     return bool(groups.find_one({"chat_id": str(chat_id)}))
 
@@ -87,8 +82,7 @@ def get_welcome_message(chat_id):
     message_data = welcome_messages.find_one({"chat_id": str(chat_id)})
     return message_data.get("welcome_message", "Welcome!") if message_data else "Welcome!"
 
-#━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Functions ━━━━━━━━━━━━━━━━━━━━━━━
-
+# User-Channel Functions
 def add_user_channel(user_id, chat_id, chat_name, chat_url):
     user_channels.insert_one({
         "user_id": str(user_id),
