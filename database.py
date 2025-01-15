@@ -42,7 +42,7 @@ def is_banned(user_id):
 def mark_deactivated(user_id):
     users.update_one({"user_id": str(user_id)}, {"$set": {"deactivated": True}}, upsert=True)
 
-def disable_broadcast(user_id):
+def disable_broadcast_for_user(user_id):
     users.update_one({"user_id": str(user_id)}, {"$set": {"broadcast_disabled": True}}, upsert=True)
 
 def enable_broadcast(user_id):
