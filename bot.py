@@ -3,9 +3,11 @@ from pyrogram import Client, filters, errors
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from config import cfg
 from database import (
-    add_user, log_user_data, is_banned, all_users, disable_broadcast_for_user,
-    enable_broadcast, is_broadcast_disabled, set_welcome_message, get_welcome_message,
-    get_user_channels, ban_user, unban_user, all_banned_users, all_disabled_broadcast_users
+    add_user, add_group, all_users, all_groups,
+    remove_user, ban_user, unban_user, is_banned,
+    disable_broadcast_for_user, enable_broadcast,
+    is_broadcast_disabled, set_welcome_message, get_welcome_message,
+    log_user_data, get_user_channels
 )
 
 # Logging
