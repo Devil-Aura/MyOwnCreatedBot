@@ -1,51 +1,46 @@
 from pymongo import MongoClient
 from config import cfg
 
-# Initialize MongoDB Client
 client = MongoClient(cfg.MONGO_URI)
+db = client["bot_database"]
 
-# Define Collections
-users = client['main']['users']
-welcome_messages = client['main']['welcome_messages']
-user_logs = client['main']['user_logs']
+# Collections
+users = db["users"]
+user_channels = db["user_channels"]
 
-
-# User Functions
-def already_db(user_id):
-    return bool(users.find_one({"user_id": str(user_id)}))
-
-
+# Functions
 def add_user(user_id, username=None):
-    if not already_db(user_id):
-        users.insert_one({
-            "user_id": str(user_id),
-            "username": username,
-            "banned": False,
-        })
-
+    if not users.find_one({"user_id": str(user_id)}):
+        users.insert_one({"user_id": str(user_id), "username": username, "banned": False})
 
 def is_banned(user_id):
     user = users.find_one({"user_id": str(user_id)})
     return user.get("banned", False) if user else False
 
+def ban_user(user_id):
+    users.update_one({"user_id": str(user_id)}, {"$set": {"banned": True}})
 
-def log_user_data(user_id, username, log_channel):
-    user_logs.insert_one({
-        "user_id": str(user_id),
-        "username": username,
-        "log_channel": str(log_channel)
-    })
+def unban_user(user_id):
+    users.update_one({"user_id": str(user_id)}, {"$set": {"banned": False}})
 
+def all_banned_users():
+    return list(users.find({"banned": True}))
+
+def disable_broadcast_for_user(user_id):
+    users.update_one({"user_id": str(user_id)}, {"$set": {"broadcast_disabled": True}})
+
+def enable_broadcast(user_id):
+    users.update_one({"user_id": str(user_id)}, {"$set": {"broadcast_disabled": False}})
+
+def is_broadcast_disabled(user_id):
+    user = users.find_one({"user_id": str(user_id)})
+    return user.get("broadcast_disabled", False) if user else False
 
 def all_users():
-    return list(users.find({"banned": False}))
+    return list(users.find())
 
+def log_user_data(user_id, username, log_channel):
+    pass  # Add your logging logic here
 
-# Welcome Message Functions
-def set_welcome_message(chat_id, message):
-    welcome_messages.update_one({"chat_id": str(chat_id)}, {"$set": {"welcome_message": message}}, upsert=True)
-
-
-def get_welcome_message(chat_id):
-    message_data = welcome_messages.find_one({"chat_id": str(chat_id)})
-    return message_data.get("welcome_message", "Welcome!") if message_data else "Welcome!"
+def get_user_channels(user_id):
+    return list(user_channels.find({"user_id": str(user_id)}))
