@@ -4,10 +4,11 @@ from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup
 from config import cfg
 from database import (
     add_user, log_user_data, is_banned, all_users, disable_broadcast_for_user,
-    is_broadcast_disabled, set_welcome_message, get_user_channels
+    enable_broadcast, is_broadcast_disabled, set_welcome_message, get_welcome_message,
+    get_user_channels, ban_user, unban_user, all_banned_users, all_disabled_broadcast_users
 )
 
-# Configure Logging
+# Logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -16,17 +17,16 @@ logger = logging.getLogger(__name__)
 
 # Initialize Pyrogram Client
 app = Client(
-    "approver",
+    "approver_bot",
     api_id=cfg.API_ID,
     api_hash=cfg.API_HASH,
     bot_token=cfg.BOT_TOKEN,
 )
 
 LOG_CHANNEL = cfg.LOG_CHANNEL
-FORCE_SUB_CHANNEL = cfg.FORCE_SUB_CHANNEL  # Add channel username in config.py without '@'
+FORCE_SUB_CHANNEL = cfg.FORCE_SUB_CHANNEL  # Without '@'
 
-
-# Function to check if user is subscribed
+# Check Subscription
 async def is_user_subscribed(client: Client, user_id: int, channel_username: str) -> bool:
     try:
         user = await client.get_chat_member(channel_username, user_id)
@@ -34,20 +34,20 @@ async def is_user_subscribed(client: Client, user_id: int, channel_username: str
     except errors.UserNotParticipant:
         return False
     except errors.ChatAdminRequired:
-        logger.warning(f"Bot is not an admin in the channel: {channel_username}")
+        logger.warning(f"Bot lacks admin rights in {channel_username}.")
         return False
     except Exception as e:
-        logger.error(f"Error checking subscription status: {e}")
+        logger.error(f"Error checking subscription: {e}")
         return False
 
 
-# Start Command
+# /start Command
 @app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
-    # Check force subscription
+    # Force Subscription Check
     if not await is_user_subscribed(app, m.from_user.id, FORCE_SUB_CHANNEL):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL}")],
+            [InlineKeyboardButton("Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL}")]
         ])
         await m.reply(
             f"🔒 You must join [this channel](https://t.me/{FORCE_SUB_CHANNEL}) to use this bot!",
@@ -56,65 +56,117 @@ async def start(_, m: Message):
         )
         return
 
-    # Check if user is banned
+    # Banned User Check
     if is_banned(m.from_user.id):
         await m.reply("🚫 You are banned from using this bot!")
         return
 
-    # Add user and log data
+    # Add User
     add_user(m.from_user.id, m.from_user.username)
     log_user_data(m.from_user.id, m.from_user.username, LOG_CHANNEL)
 
-    await app.send_message(
-        LOG_CHANNEL,
-        f"🆕 **New User Alert!**\n"
-        f"**Username:** @{m.from_user.username or 'N/A'}\n"
-        f"**User ID:** `{m.from_user.id}`",
-    )
-
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
-            InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-        ],
-        [
-            InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Request_acceept_bot?startchannel"),
-            InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
-        ],
+            InlineKeyboardButton("Channel", url="https://t.me/World_Fastest_Bots"),
+            InlineKeyboardButton("Support", url="https://t.me/Fastest_Bots_Support"),
+        ]
     ])
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-        caption=(
-            f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n\n"
-            f"🚀 I am the FASTEST BOT, faster than light ⚡!\n"
-            f"I approve join requests in just 0.5 seconds.\n"
-            f" <blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-            f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
-            f"Powered By : @World_Fastest_Bots**"
-        ),
+        caption="Welcome to the fastest bot! Add me to your channels and groups.",
         reply_markup=keyboard,
     )
 
 
-# Set Welcome Message Command
-@app.on_message(filters.command("set_welcome_msg") & filters.user(cfg.SUDO))
-async def set_welcome_msg(_, m: Message):
+# /ban Command
+@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
+async def ban_command(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("Usage: `/set_welcome_msg <message>`")
+        await m.reply("Usage: `/ban user_id`")
         return
+    user_id = int(m.command[1])
+    ban_user(user_id)
+    disable_broadcast_for_user(user_id)
+    await m.reply(f"🚫 User `{user_id}` has been banned.")
 
-    message = " ".join(m.command[1:])
-    set_welcome_message(m.chat.id, message)
-    await m.reply(f"✅ Welcome message set to: {message}")
+
+# /unban Command
+@app.on_message(filters.command("unban") & filters.user(cfg.SUDO))
+async def unban_command(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/unban user_id`")
+        return
+    user_id = int(m.command[1])
+    unban_user(user_id)
+    await m.reply(f"✅ User `{user_id}` has been unbanned.")
 
 
-# Stats Command
+# /show_banned_users Command
+@app.on_message(filters.command("show_banned_users") & filters.user(cfg.SUDO))
+async def show_banned_users(_, m: Message):
+    banned_users = all_banned_users()
+    if not banned_users:
+        await m.reply("🚫 No banned users found.")
+        return
+    text = "\n".join([f"• `{user['user_id']}`" for user in banned_users])
+    await m.reply(f"📜 **Banned Users:**\n\n{text}")
+
+
+# /disable_broadcast Command
+@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
+async def disable_broadcast(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/disable_broadcast user_id`")
+        return
+    user_id = int(m.command[1])
+    disable_broadcast_for_user(user_id)
+    await m.reply(f"🚫 Broadcast disabled for user `{user_id}`.")
+
+
+# /enable_broadcast Command
+@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
+async def enable_broadcast(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/enable_broadcast user_id`")
+        return
+    user_id = int(m.command[1])
+    enable_broadcast(user_id)
+    await m.reply(f"✅ Broadcast enabled for user `{user_id}`.")
+
+
+# /show_disable_broadcast_users Command
+@app.on_message(filters.command("show_disable_broadcast_users") & filters.user(cfg.SUDO))
+async def show_disabled_broadcast_users(_, m: Message):
+    disabled_users = all_disabled_broadcast_users()
+    if not disabled_users:
+        await m.reply("🚫 No disabled broadcast users found.")
+        return
+    text = "\n".join([f"• `{user['user_id']}`" for user in disabled_users])
+    await m.reply(f"📜 **Disabled Broadcast Users:**\n\n{text}")
+
+
+# /user_channels Command
+@app.on_message(filters.command("user_channels") & filters.user(cfg.SUDO))
+async def user_channels(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("Usage: `/user_channels user_id`")
+        return
+    user_id = int(m.command[1])
+    channels = get_user_channels(user_id)
+    if not channels:
+        await m.reply(f"🚫 No channels found for user `{user_id}`.")
+        return
+    text = "\n".join([f"• `{c['chat_id']}`: {c['chat_name']}" for c in channels])
+    await m.reply(f"📜 **User Channels:**\n\n{text}")
+
+
+# /stats Command
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
 async def stats(_, m: Message):
     active_users = len(all_users())
-    await m.reply_text(f"📊 **Bot Statistics:**\n\n👤 **Active Users:** `{active_users}`")
+    await m.reply(f"📊 **Active Users:** `{active_users}`")
 
 
 # Run the Bot
-logger.info("🚀 Bot is alive and running faster than light!")
+logger.info("🚀 Bot is live and running!")
 app.run()
