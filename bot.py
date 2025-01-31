@@ -42,7 +42,7 @@ async def is_user_subscribed(client: Client, user_id: int, channel_username: str
 @app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
     # Force subscription check
-    if not await is_user_subscribed(app, m.from_user.id, FORCE_SUB_CHANNEL):
+    if not await is_user_subscribed(app, m.from_user.id, FORCE_SUB_CHANNEL_ID):
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("Join Channel", url=f"https://t.me/World_Fastest_Bots")],
         ])
