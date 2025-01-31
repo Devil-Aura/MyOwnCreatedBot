@@ -27,7 +27,7 @@ app = Client(
 )
 
 LOG_CHANNEL = cfg.LOG_CHANNEL
-FORCE_SUB_CHANNEL = cfg.FORCE_SUB_CHANNEL  # Add the channel username in config.py without '@'
+FORCE_SUB_CHANNEL_ID = cfg.FORCE_SUB_CHANNEL_ID  # Add the channel username in config.py without '@'
 
 
 async def is_user_subscribed(client: Client, user_id: int, channel_username: str) -> bool:
@@ -44,10 +44,10 @@ async def start(_, m: Message):
     # Force subscription check
     if not await is_user_subscribed(app, m.from_user.id, FORCE_SUB_CHANNEL):
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Channel", url=f"https://t.me/{FORCE_SUB_CHANNEL}")],
+            [InlineKeyboardButton("Join Channel", url=f"https://t.me/World_Fastest_Bots")],
         ])
         await m.reply(
-            f"🔒 You must join [this channel](https://t.me/{FORCE_SUB_CHANNEL}) to use this bot!",
+            f"🔒 You must join [this channel](https://t.me/World_Fastest_Bots) to use this bot!",
             disable_web_page_preview=True,
             reply_markup=keyboard,
         )
