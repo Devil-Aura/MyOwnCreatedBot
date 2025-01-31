@@ -8,7 +8,7 @@ class Config:
     SUDO = list(map(int, getenv("SUDO", "6040503076 1234567890 9876543210").split()))  
     MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")  
     LOG_CHANNEL = int(getenv("LOG_CHANNEL", "-1002446826368"))  
-    FLASK_PORT = int(getenv("FLASK_PORT", 9823))  
+    FLASK_PORT = int(getenv("FLASK_PORT", 9873))  
     
     # New additions:
     DEFAULT_WELCOME_MESSAGE = getenv("DEFAULT_WELCOME_MESSAGE", "🚀 Welcome to the fastest bot!")
