@@ -85,7 +85,7 @@ async def start(_, m: Message):
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
             f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n\n"
-            f"🚀 I am the FASTEST BOT, faster than light ⚡!\n"
+            f"🚀 I am the FASTEST BOT, faster than light ⚡!"
             f"I approve join requests in just 0.5 seconds.\n"
             f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
             f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
@@ -170,13 +170,13 @@ async def set_welcome(_, m: Message):
         await m.reply("Usage: `/set_welcome message`")
         return
     welcome_message = ' '.join(m.command[1:])
-    set_welcome_message(welcome_message)
+    set_welcome_message(cfg.SUDO, welcome_message)  # User ID passed here
     await m.reply(f"✅ Welcome message set to: {welcome_message}")
 
 
 @app.on_message(filters.command("get_welcome") & filters.user(cfg.SUDO))
 async def get_welcome(_, m: Message):
-    welcome_message = get_welcome_message()
+    welcome_message = get_welcome_message(cfg.SUDO)  # User ID passed here
     await m.reply(f"📜 Welcome Message: {welcome_message}")
 
 
