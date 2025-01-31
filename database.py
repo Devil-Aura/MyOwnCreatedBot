@@ -2,9 +2,12 @@ import sqlite3
 
 db_name = "bot_database.db"
 
-def initialize_database():
+def remove_user(user_id):
+    """Removes a user from the database."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        conn.commit()
         
         # Users Table
         cursor.execute("""
