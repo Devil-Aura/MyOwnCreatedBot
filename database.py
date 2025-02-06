@@ -1,3 +1,4 @@
+import sqlite3  # Ensure sqlite3 is imported
 from pymongo import MongoClient
 from os import getenv
 
