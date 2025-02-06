@@ -72,7 +72,6 @@ keyboard = InlineKeyboardMarkup([
         InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
     ],
 ])
-    add_user(user_id)
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
