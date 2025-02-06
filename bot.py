@@ -72,25 +72,19 @@ keyboard = InlineKeyboardMarkup([
         InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
     ],
 ])
-    try:
-    async def some_function(m):
-        add_user(m.from_user.id)  # ✅ Ensuring correct indentation
-        
-        await m.reply_photo(
-            "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-            caption=(
-                "**🙋🏻‍♂️ Hello {}!\n\n"
-                "🚀 I am the FASTEST BOT, faster than light ⚡!\n"
-                "I approve join requests in just 0.5 seconds.\n"
-                "<blockquote>I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-                "I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
-                "Powered By: @World_Fastest_Bots**"
-            ).format(m.from_user.mention),
-            reply_markup=keyboard
-        )
-
-except Exception as e:
-    print(f"Error in some_function: {e}")
+    add_user(user_id)
+    await m.reply_photo(
+        "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
+        caption=(
+            f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n\n"
+            f"🚀 I am the FASTEST BOT, faster than light ⚡!"
+            f"I approve join requests in just 0.5 seconds.\n"
+            f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
+            f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
+            f"Powered By : @World_Fastest_Bots**"
+        ),
+        reply_markup=keyboard,
+    )
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_join_request(filters.group | filters.channel)
