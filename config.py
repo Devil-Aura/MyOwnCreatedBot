@@ -16,7 +16,7 @@ class Config:
         "MONGO_URI",
         "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
     )
-    
+    FLASK_PORT = int(getenv("FLASK_PORT", "9067"))
     # Default Welcome Message
     DEFAULT_WELCOME_MSG = "🎉 Welcome, {user_mention}!\nYour request to join {chat_title} has been approved! 🚀In 0.5 Seconds, This Is World Fastest Request Approval Bot.\n/start (For Use Me)"
 
