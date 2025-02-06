@@ -43,7 +43,7 @@ async def start(_, m: Message):
         key = InlineKeyboardMarkup(
             [[
                 InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),
-                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="chk")
+                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="https://t.me/Auto_Request_Accept_Fast_bot?start=6")
             ]]
         )
         await m.reply_text(
