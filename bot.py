@@ -1,86 +1,73 @@
-import logging
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from config import cfg
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from pyrogram import filters, Client, errors, enums
+from pyrogram.errors import UserNotParticipant
+from pyrogram.errors.exceptions.flood_420 import FloodWait
 from database import (
-    all_users, remove_user, log_user_data, is_banned, add_user, 
-    ban_user, unban_user, all_banned_users, disable_broadcast_for_user,
-    enable_broadcast, all_disabled_broadcast_users, set_welcome_message,
-    get_welcome_message, get_user_channels, is_broadcast_disabled, is_admin,
-    add_admin, all_admins
+    add_user, add_group, all_users, all_groups, users, remove_user,
+    disable_broadcast, enable_broadcast, is_broadcast_disabled,
+    ban_user, unban_user, is_user_banned, get_banned_users,
+    get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
+    get_user_channels
 )
-from helper_func import broadcast_message
+from configs import cfg
+import asyncio
 
-# Configure Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-# Initialize Pyrogram Client
 app = Client(
-    "broadcast_bot",
+    "approver",
     api_id=cfg.API_ID,
     api_hash=cfg.API_HASH,
-    bot_token=cfg.BOT_TOKEN,
+    bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = cfg.LOG_CHANNEL
-FORCE_SUB_CHANNEL_ID = cfg.FORCE_SUB_CHANNEL_ID  # Add the channel username in config.py without '@'
+LOG_CHANNEL = -1002446826368  # Log channel ID
 
-
-async def is_user_subscribed(client: Client, user_id: int, channel_username: str) -> bool:
-    try:
-        user = await client.get_chat_member(channel_username, user_id)
-        return user.status in ["member", "administrator", "creator"]
-    except Exception as e:
-        logger.error(f"Subscription check failed: {e}")
-        return False
-
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.private & filters.command("start"))
 async def start(_, m: Message):
-    # Force subscription check
-    if not await is_user_subscribed(app, m.from_user.id, FORCE_SUB_CHANNEL_ID):
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Join Channel", url=f"https://t.me/World_Fastest_Bots")],
-        ])
-        await m.reply(
-            f"🔒 You must join [this channel](https://t.me/World_Fastest_Bots) to use this bot!",
-            disable_web_page_preview=True,
-            reply_markup=keyboard,
-        )
-        return
+    user_id = m.from_user.id
+    user_mention = m.from_user.mention
 
-    # Ban check
-    if is_banned(m.from_user.id):
+    if is_user_banned(user_id):
         await m.reply("🚫 You are banned from using this bot!")
         return
 
-    # Register the user
-    add_user(m.from_user.id, m.from_user.username)
-    log_user_data(m.from_user.id, m.from_user.username, LOG_CHANNEL)
+    try:
+        await app.get_chat_member(cfg.CHID, user_id)
+    except UserNotParticipant:
+        try:
+            invite_link = await app.create_chat_invite_link(cfg.CHID)
+        except:
+            await m.reply("**Make sure I am an admin in your channel!**")
+            return
+        key = InlineKeyboardMarkup(
+            [[
+                InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),
+                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="chk")
+            ]]
+        )
+        await m.reply_text(
+            "**⚠️ Access Denied! ⚠️**\n\n"
+            "Please join my update channel to use me. If you have already joined, click 'Check Again' to confirm.",
+            reply_markup=key
+        )
+        return
 
-    # Log new user
+    # Logging user activity
     await app.send_message(
         LOG_CHANNEL,
-        f"🆕 New User Alert!\n"
-        f"Username: @{m.from_user.username or 'N/A'}\n"
-        f"User ID: {m.from_user.id}",
+        f"**New User Started the Bot!**\n\n"
+        f"👤 **User:** {user_mention}\n"
+        f"🆔 **User ID:** `{user_id}`"
     )
 
-    # Send a welcome message with buttons
-    keyboard = InlineKeyboardMarkup([
-        [
+    keyboard = InlineKeyboardMarkup(
+        [[
             InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
-            InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-        ],
-        [
-            InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel"),
-            InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
-        ],
-    ])
+            InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support")
+        ]]
+    )
+    add_user(user_id)
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
@@ -93,98 +80,103 @@ async def start(_, m: Message):
         ),
         reply_markup=keyboard,
     )
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+@app.on_chat_join_request(filters.group | filters.channel)
+async def approve(_, m: Message):
+    chat = m.chat
+    user = m.from_user
 
-@app.on_message(filters.command("admin") & filters.user(cfg.SUDO))
-async def make_admin(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/admin user_id`")
-        return
-    user_id = int(m.command[1])
-    add_admin(user_id)
-    await m.reply(f"✅ User `{user_id}` has been made an admin.")
+    try:
+        add_group(chat.id)
+        await app.approve_chat_join_request(chat.id, user.id)
 
+        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
+        await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
+
+        add_user(user.id)
+    except errors.PeerIdInvalid:
+        print("User hasn't started the bot (group issue)")
+    except Exception as e:
+        print(str(e))
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
 async def stats(_, m: Message):
-    total_users = len(all_users())
-    total_admins = len(all_admins())
-    await m.reply(f"📊 **Total Active Users:** `{total_users}`\n"
-                  f"👑 **Total Admins:** `{total_admins}`")
+    total_users = all_users()
+    total_groups = all_groups()
+    banned_users = len(get_banned_users())
+    disabled_broadcasts = len(get_disabled_broadcast_users())
 
+    await m.reply_text(
+        f"📊 **Bot Stats**\n\n"
+        f"👥 Users: `{total_users}`\n"
+        f"📢 Groups: `{total_groups}`\n"
+        f"🚫 Banned Users: `{banned_users}`\n"
+        f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`"
+    )
 
-@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO))
-async def broadcast(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/broadcast message`")
+@app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
+async def set_welcome(_, m: Message):
+    chat_id = m.chat.id
+    welcome_msg = m.text.split(None, 1)[1] if len(m.text.split()) > 1 else None
+
+    if not welcome_msg:
+        await m.reply("⚠️ Please provide a welcome message!")
         return
-    
-    message = ' '.join(m.command[1:])
-    await broadcast_message(app, message)
-    await m.reply("📣 **Broadcast sent successfully!**")
 
+    set_welcome_message(chat_id, welcome_msg)
+    await m.reply("✅ Welcome message updated successfully!")
 
-@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
-async def ban_user_command(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/ban user_id`")
+@app.on_message(filters.command("User_Channels") & filters.user(cfg.SUDO))
+async def user_channels(_, m: Message):
+    channels = get_user_channels()
+    if not channels:
+        await m.reply("No users have added the bot to any channels/groups yet.")
         return
+
+    text = "**📋 Users & Their Channels/Groups:**\n"
+    for user_id, details in channels.items():
+        text += f"\n👤 `{user_id}` - {details['username']}\n📢 {details['chat_title']} ({details['chat_url']})"
+
+    await m.reply(text)
+
+@app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
+async def disable_broadcast_cmd(_, m: Message):
     user_id = int(m.command[1])
-    ban_user(user_id)
-    await m.reply(f"🚫 User `{user_id}` has been banned.")
+    disable_broadcast(user_id)
+    await m.reply(f"🚫 Broadcasts disabled for `{user_id}`.")
 
-
-@app.on_message(filters.command("unban") & filters.user(cfg.SUDO))
-async def unban_user_command(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/unban user_id`")
-        return
-    user_id = int(m.command[1])
-    unban_user(user_id)
-    await m.reply(f"✅ User `{user_id}` has been unbanned.")
-
-
-@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
-async def disable_broadcast(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/disable_broadcast user_id`")
-        return
-    user_id = int(m.command[1])
-    disable_broadcast_for_user(user_id)
-    await m.reply(f"🚫 Broadcast has been disabled for user `{user_id}`.")
-
-
-@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
-async def enable_broadcast(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/enable_broadcast user_id`")
-        return
+@app.on_message(filters.command("Unable_Boardcast") & filters.user(cfg.SUDO))
+async def enable_broadcast_cmd(_, m: Message):
     user_id = int(m.command[1])
     enable_broadcast(user_id)
-    await m.reply(f"✅ Broadcast has been enabled for user `{user_id}`.")
+    await m.reply(f"🔔 Broadcasts enabled for `{user_id}`.")
 
+@app.on_message(filters.command("Shows_Disable_Boardcast_Users") & filters.user(cfg.SUDO))
+async def show_disabled_broadcasts(_, m: Message):
+    users = get_disabled_broadcast_users()
+    text = "🔕 **Users with Disabled Broadcasts:**\n" + "\n".join(f"👤 `{user}`" for user in users)
+    await m.reply(text)
 
-@app.on_message(filters.command("set_welcome") & filters.user(cfg.SUDO))
-async def set_welcome(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("Usage: `/set_welcome message`")
-        return
-    welcome_message = ' '.join(m.command[1:])
-    set_welcome_message(cfg.SUDO, welcome_message)  # User ID passed here
-    await m.reply(f"✅ Welcome message set to: {welcome_message}")
+@app.on_message(filters.command("Ban") & filters.user(cfg.SUDO))
+async def ban(_, m: Message):
+    user_id = int(m.command[1])
+    ban_user(user_id)
+    await m.reply(f"🚫 User `{user_id}` has been banned!")
 
+@app.on_message(filters.command("Unban") & filters.user(cfg.SUDO))
+async def unban(_, m: Message):
+    user_id = int(m.command[1])
+    unban_user(user_id)
+    await m.reply(f"✅ User `{user_id}` has been unbanned!")
 
-@app.on_message(filters.command("get_welcome") & filters.user(cfg.SUDO))
-async def get_welcome(_, m: Message):
-    welcome_message = get_welcome_message(cfg.SUDO)  # User ID passed here
-    await m.reply(f"📜 Welcome Message: {welcome_message}")
+@app.on_message(filters.command("Shows_Banusers") & filters.user(cfg.SUDO))
+async def show_banned_users(_, m: Message):
+    users = get_banned_users()
+    text = "🚫 **Banned Users:**\n" + "\n".join(f"👤 `{user}`" for user in users)
+    await m.reply(text)
 
-
-@app.on_message(filters.command("channels") & filters.user(cfg.SUDO))
-async def get_channels(_, m: Message):
-    channels = get_user_channels()
-    await m.reply(f"**User Channels:**\n{channels}")
-
-
-logger.info("🚀 Bot is alive and running!")
+print("Bot is running!")
 app.run()
