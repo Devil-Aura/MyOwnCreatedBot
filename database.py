@@ -12,6 +12,10 @@ db = client["Cluster0"]  # Database name (change if needed)
 # Collections
 users = db["users"]  # Collection for storing user data
 channels = db["channels"]  # Collection for storing channel/group data
+
+# Define DB Name for SQLite
+DB_NAME = "bot_database.db"  # Make sure DB_NAME is defined
+
 # Create Tables
 def create_tables():
     conn = sqlite3.connect(DB_NAME)
