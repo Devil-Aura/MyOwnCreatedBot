@@ -9,7 +9,7 @@ from database import (
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
     get_user_channels
 )
-from configs import cfg
+from config import cfg
 import asyncio
 
 app = Client(
