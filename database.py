@@ -1,7 +1,16 @@
-import sqlite3
+from pymongo import MongoClient
+from os import getenv
 
-DB_NAME = "bot_database.db"
+# Load MongoDB URI from environment variables
+MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
+# Connect to MongoDB
+client = MongoClient(MONGO_URI)
+db = client["Cluster0"]  # Database name (change if needed)
+
+# Collections
+users = db["users"]  # Collection for storing user data
+channels = db["channels"]  # Collection for storing channel/group data
 # Create Tables
 def create_tables():
     conn = sqlite3.connect(DB_NAME)
