@@ -102,7 +102,7 @@ def add_group(chat_id, user_id, chat_title, chat_url, chat_type):
         "chat_id": chat_id,
         "chat_title": chat_title,
         "chat_url": chat_url,
-        "type": chat_type
+        "type": chat_type  # Ensure this field is always added
     })
 
 def all_groups():
@@ -217,18 +217,19 @@ def get_user_channels():
             user_channels = channels_collection.find({"user_id": user_id})
             channels[user_id] = {"username": username, "channels": [], "groups": []}
             for channel in user_channels:
-                if channel["type"] == "channel":
-                    channels[user_id]["channels"].append({
-                        "chat_title": channel["chat_title"],
-                        "chat_url": channel["chat_url"],
-                        "type": "channel"
-                    })
-                elif channel["type"] == "group":
-                    channels[user_id]["groups"].append({
-                        "chat_title": channel["chat_title"],
-                        "chat_url": channel["chat_url"],
-                        "type": "group"
-                    })
+                if "type" in channel:  # Check if the 'type' key exists
+                    if channel["type"] == "channel":
+                        channels[user_id]["channels"].append({
+                            "chat_title": channel["chat_title"],
+                            "chat_url": channel["chat_url"],
+                            "type": "channel"
+                        })
+                    elif channel["type"] == "group":
+                        channels[user_id]["groups"].append({
+                            "chat_title": channel["chat_title"],
+                            "chat_url": channel["chat_url"],
+                            "type": "group"
+                        })
     
     return channels
 
