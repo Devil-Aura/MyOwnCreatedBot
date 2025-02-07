@@ -1,4 +1,4 @@
-import sqlite3  # Ensure sqlite3 is imported
+import sqlite3
 from pymongo import MongoClient
 from os import getenv
 
@@ -86,12 +86,20 @@ def all_users():
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
-def add_group(chat_id):
+def add_group(chat_id, user_id, chat_title, chat_url):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO groups (chat_id) VALUES (?)", (chat_id,))
     conn.commit()
     conn.close()
+
+    # Add to MongoDB
+    channels.insert_one({
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "chat_title": chat_title,
+        "chat_url": chat_url
+    })
 
 def all_groups():
     conn = sqlite3.connect(DB_NAME)
@@ -190,17 +198,26 @@ def get_welcome_message(chat_id):
 def get_user_channels():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users")
+    cursor.execute("SELECT user_id FROM users")
     users = cursor.fetchall()
     conn.close()
-    
+
     channels = {}
     for user in users:
         user_id = user[0]
-        username = f"User-{user_id}"
-        chat_title = f"Chat-{user_id}"
-        chat_url = f"https://t.me/chat{user_id}"
-        channels[user_id] = {"username": username, "chat_title": chat_title, "chat_url": chat_url}
+        # Fetch user details from MongoDB
+        user_data = users.find_one({"user_id": user_id})
+        if user_data:
+            username = user_data.get("username", f"User-{user_id}")
+            # Fetch channels/groups where the bot is added
+            user_channels = channels.find({"user_id": user_id})
+            for channel in user_channels:
+                chat_id = channel.get("chat_id")
+                chat_title = channel.get("chat_title", f"Chat-{chat_id}")
+                chat_url = channel.get("chat_url", f"https://t.me/{chat_id}")
+                if user_id not in channels:
+                    channels[user_id] = {"username": username, "channels": []}
+                channels[user_id]["channels"].append({"chat_title": chat_title, "chat_url": chat_url})
     
     return channels
 
