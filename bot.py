@@ -7,7 +7,7 @@ from database import (
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    get_user_channels
+    get_user_channels, users_collection  # Import users_collection
 )
 from config import cfg
 import asyncio
@@ -95,7 +95,8 @@ async def approve(_, m: Message):
     try:
         # Fetch chat invite link if the bot has permission
         invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
-        add_group(chat.id, user.id, chat.title, invite_link, "channel" if chat.type == enums.ChatType.CHANNEL else "group")
+        chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"
+        add_group(chat.id, user.id, chat.title, invite_link, chat_type)
         await app.approve_chat_join_request(chat.id, user.id)
 
         welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
@@ -150,13 +151,11 @@ async def user_channels(_, m: Message):
         if details["channels"]:
             text += "  📢 **Channels:**\n"
             for channel in details["channels"]:
-                if channel["type"] == "channel":
-                    text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
+                text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
         if details["groups"]:
             text += "  📢 **Groups:**\n"
             for group in details["groups"]:
-                if group["type"] == "group":
-                    text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
+                text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
         else:
             text += "  ❌ No channels/groups added.\n"
 
