@@ -89,7 +89,7 @@ def all_users():
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
-def add_group(chat_id, user_id, chat_title, chat_url):
+def add_group(chat_id, user_id, chat_title, chat_url, chat_type):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO groups (chat_id) VALUES (?)", (chat_id,))
@@ -101,7 +101,8 @@ def add_group(chat_id, user_id, chat_title, chat_url):
         "user_id": user_id,
         "chat_id": chat_id,
         "chat_title": chat_title,
-        "chat_url": chat_url
+        "chat_url": chat_url,
+        "type": chat_type
     })
 
 def all_groups():
@@ -214,12 +215,20 @@ def get_user_channels():
             username = user_data.get("username", f"User-{user_id}")
             # Fetch channels/groups where the bot is added
             user_channels = channels_collection.find({"user_id": user_id})
-            channels[user_id] = {"username": username, "channels": []}
+            channels[user_id] = {"username": username, "channels": [], "groups": []}
             for channel in user_channels:
-                chat_id = channel.get("chat_id")
-                chat_title = channel.get("chat_title", f"Chat-{chat_id}")
-                chat_url = channel.get("chat_url", f"https://t.me/{chat_id}")
-                channels[user_id]["channels"].append({"chat_title": chat_title, "chat_url": chat_url})
+                if channel["type"] == "channel":
+                    channels[user_id]["channels"].append({
+                        "chat_title": channel["chat_title"],
+                        "chat_url": channel["chat_url"],
+                        "type": "channel"
+                    })
+                elif channel["type"] == "group":
+                    channels[user_id]["groups"].append({
+                        "chat_title": channel["chat_title"],
+                        "chat_url": channel["chat_url"],
+                        "type": "group"
+                    })
     
     return channels
 
