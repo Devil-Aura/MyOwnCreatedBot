@@ -3,7 +3,7 @@ from pyrogram import filters, Client, errors, enums
 from pyrogram.errors import UserNotParticipant
 from pyrogram.errors.exceptions.flood_420 import FloodWait
 from database import (
-    add_user, add_group, all_users, all_groups, users, remove_user,
+    add_user, add_group, all_users, all_groups, remove_user,
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
@@ -200,7 +200,7 @@ async def broadcast_message(_, m: Message):
     broadcast_msg = m.reply_to_message
 
     # Get all users except banned and disabled broadcast users
-    all_users_list = users.find({})  # Fetch all users from MongoDB
+    all_users_list = [user["user_id"] for user in users_collection.find({})]  # Fetch all user IDs from MongoDB
     disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users
     banned_users = get_banned_users()  # Fetch banned users
 
@@ -208,8 +208,7 @@ async def broadcast_message(_, m: Message):
     failed = 0
 
     # Send the message to all users
-    for user in all_users_list:
-        user_id = user["user_id"]
+    for user_id in all_users_list:
         if user_id not in disabled_users and user_id not in banned_users:
             try:
                 await broadcast_msg.copy(user_id)
