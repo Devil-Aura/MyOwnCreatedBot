@@ -93,7 +93,7 @@ async def approve(_, m: Message):
     user = m.from_user
 
     try:
-        add_group(chat.id)
+        add_group(chat.id, user.id, chat.title, f"https://t.me/{chat.username}" if chat.username else f"https://t.me/c/{chat.id}")
         await app.approve_chat_join_request(chat.id, user.id)
 
         welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
@@ -143,9 +143,15 @@ async def user_channels(_, m: Message):
 
     text = "**📋 Users & Their Channels/Groups:**\n"
     for user_id, details in channels.items():
-        text += f"\n👤 `{user_id}` - {details['username']}\n📢 {details['chat_title']} ({details['chat_url']})"
+        username = details["username"]
+        text += f"\n👤 **User:** {username} (ID: `{user_id}`)\n"
+        if details["channels"]:
+            for channel in details["channels"]:
+                text += f"  📢 **Channel/Group:** [{channel['chat_title']}]({channel['chat_url']})\n"
+        else:
+            text += "  ❌ No channels/groups added.\n"
 
-    await m.reply(text)
+    await m.reply(text, disable_web_page_preview=True)
 
 @app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
 async def disable_broadcast_cmd(_, m: Message):
@@ -182,6 +188,43 @@ async def show_banned_users(_, m: Message):
     users = get_banned_users()
     text = "🚫 **Banned Users:**\n" + "\n".join(f"👤 `{user}`" for user in users)
     await m.reply(text)
+
+@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
+async def broadcast_message(_, m: Message):
+    # Check if the command is used as a reply
+    if not m.reply_to_message:
+        await m.reply("⚠️ Please reply to a message to broadcast it!")
+        return
+
+    # Get the replied message
+    broadcast_msg = m.reply_to_message
+
+    # Get all users except banned and disabled broadcast users
+    all_users_list = users.find({})  # Fetch all users from MongoDB
+    disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users
+    banned_users = get_banned_users()  # Fetch banned users
+
+    success = 0
+    failed = 0
+
+    # Send the message to all users
+    for user in all_users_list:
+        user_id = user["user_id"]
+        if user_id not in disabled_users and user_id not in banned_users:
+            try:
+                await broadcast_msg.copy(user_id)
+                success += 1
+            except Exception as e:
+                print(f"Failed to send message to {user_id}: {e}")
+                failed += 1
+        await asyncio.sleep(0.1)  # To avoid flooding
+
+    # Send broadcast stats to the admin
+    await m.reply(
+        f"📢 **Broadcast Completed!**\n\n"
+        f"✅ Success: `{success}`\n"
+        f"❌ Failed: `{failed}`"
+    )
 
 print("Bot is running!")
 app.run()
