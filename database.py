@@ -10,8 +10,8 @@ client = MongoClient(MONGO_URI)
 db = client["Cluster0"]  # Database name (change if needed)
 
 # Collections
-users = db["users"]  # Collection for storing user data
-channels = db["channels"]  # Collection for storing channel/group data
+users_collection = db["users"]  # Collection for storing user data
+channels_collection = db["channels"]  # Collection for storing channel/group data
 
 # Define DB Name for SQLite
 DB_NAME = "bot_database.db"  # Make sure DB_NAME is defined
@@ -69,6 +69,9 @@ def add_user(user_id):
     conn.commit()
     conn.close()
 
+    # Add to MongoDB
+    users_collection.insert_one({"user_id": user_id})
+
 def remove_user(user_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -94,7 +97,7 @@ def add_group(chat_id, user_id, chat_title, chat_url):
     conn.close()
 
     # Add to MongoDB
-    channels.insert_one({
+    channels_collection.insert_one({
         "user_id": user_id,
         "chat_id": chat_id,
         "chat_title": chat_title,
@@ -199,24 +202,23 @@ def get_user_channels():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
+    users_list = cursor.fetchall()
     conn.close()
 
     channels = {}
-    for user in users:
+    for user in users_list:
         user_id = user[0]
         # Fetch user details from MongoDB
-        user_data = users.find_one({"user_id": user_id})
+        user_data = users_collection.find_one({"user_id": user_id})
         if user_data:
             username = user_data.get("username", f"User-{user_id}")
             # Fetch channels/groups where the bot is added
-            user_channels = channels.find({"user_id": user_id})
+            user_channels = channels_collection.find({"user_id": user_id})
+            channels[user_id] = {"username": username, "channels": []}
             for channel in user_channels:
                 chat_id = channel.get("chat_id")
                 chat_title = channel.get("chat_title", f"Chat-{chat_id}")
                 chat_url = channel.get("chat_url", f"https://t.me/{chat_id}")
-                if user_id not in channels:
-                    channels[user_id] = {"username": username, "channels": []}
                 channels[user_id]["channels"].append({"chat_title": chat_title, "chat_url": chat_url})
     
     return channels
