@@ -93,7 +93,9 @@ async def approve(_, m: Message):
     user = m.from_user
 
     try:
-        add_group(chat.id, user.id, chat.title, f"https://t.me/{chat.username}" if chat.username else f"https://t.me/c/{chat.id}")
+        # Fetch chat invite link if the bot has permission
+        invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
+        add_group(chat.id, user.id, chat.title, invite_link, "channel" if chat.type == enums.ChatType.CHANNEL else "group")
         await app.approve_chat_join_request(chat.id, user.id)
 
         welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
@@ -146,8 +148,15 @@ async def user_channels(_, m: Message):
         username = details["username"]
         text += f"\n👤 **User:** {username} (ID: `{user_id}`)\n"
         if details["channels"]:
+            text += "  📢 **Channels:**\n"
             for channel in details["channels"]:
-                text += f"  📢 **Channel/Group:** [{channel['chat_title']}]({channel['chat_url']})\n"
+                if channel["type"] == "channel":
+                    text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
+        if details["groups"]:
+            text += "  📢 **Groups:**\n"
+            for group in details["groups"]:
+                if group["type"] == "group":
+                    text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
         else:
             text += "  ❌ No channels/groups added.\n"
 
@@ -155,12 +164,20 @@ async def user_channels(_, m: Message):
 
 @app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
 async def disable_broadcast_cmd(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("⚠️ Please provide a user ID!")
+        return
+
     user_id = int(m.command[1])
     disable_broadcast(user_id)
     await m.reply(f"🚫 Broadcasts disabled for `{user_id}`.")
 
 @app.on_message(filters.command("Unable_Boardcast") & filters.user(cfg.SUDO))
 async def enable_broadcast_cmd(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("⚠️ Please provide a user ID!")
+        return
+
     user_id = int(m.command[1])
     enable_broadcast(user_id)
     await m.reply(f"🔔 Broadcasts enabled for `{user_id}`.")
@@ -173,12 +190,20 @@ async def show_disabled_broadcasts(_, m: Message):
 
 @app.on_message(filters.command("Ban") & filters.user(cfg.SUDO))
 async def ban(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("⚠️ Please provide a user ID!")
+        return
+
     user_id = int(m.command[1])
     ban_user(user_id)
     await m.reply(f"🚫 User `{user_id}` has been banned!")
 
 @app.on_message(filters.command("Unban") & filters.user(cfg.SUDO))
 async def unban(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("⚠️ Please provide a user ID!")
+        return
+
     user_id = int(m.command[1])
     unban_user(user_id)
     await m.reply(f"✅ User `{user_id}` has been unbanned!")
