@@ -147,7 +147,7 @@ async def user_channels(_, m: Message):
     text = "**📋 Users & Their Channels/Groups:**\n"
     for user_id, details in channels.items():
         username = details["username"]
-        text += f"\n👤 **User:** {username} (ID: `{user_id}`)\n"
+        text += f"\n👤 **User:** [{username}](tg://user?id={user_id}) (ID: `{user_id}`)\n"  # Mention username and user ID
         if details["channels"]:
             text += "  📢 **Channels:**\n"
             for channel in details["channels"]:
@@ -235,7 +235,7 @@ async def broadcast_message(_, m: Message):
     for user_id in all_users_list:
         if user_id not in disabled_users and user_id not in banned_users:
             try:
-                await broadcast_msg.copy(user_id)
+                await broadcast_msg.copy(user_id)  # Send the message only once
                 success += 1
             except Exception as e:
                 print(f"Failed to send message to {user_id}: {e}")
