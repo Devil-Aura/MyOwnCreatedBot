@@ -29,7 +29,7 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot!/n @Fastest_Bots_Support")
+        await m.reply("🚫 You are banned from using this bot!")
         return
 
     try:
@@ -92,7 +92,7 @@ async def check_again_callback(_, query: CallbackQuery):
     # Delete the previous message
     await query.message.delete()
 
-    # Send the /start command
+    # Send the /start command from the user's side
     await query.message.reply("/start")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -109,7 +109,7 @@ async def approve(_, m: Message):
         add_group(chat.id, user.id, chat.title, invite_link, chat_type)
         await app.approve_chat_join_request(chat.id, user.id)
 
-        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 By World Fastest Bot In 0.5 Seconds"
+        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
 
         add_user(user.id)
@@ -234,7 +234,7 @@ async def broadcast_message(_, m: Message):
     broadcast_msg = m.reply_to_message
 
     # Get all users except banned and disabled broadcast users
-    all_users_list = [user["user_id"] for user in users_collection.find({})]  # Fetch all user IDs from MongoDB
+    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  # Fetch all unique user IDs from MongoDB
     disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users
     banned_users = get_banned_users()  # Fetch banned users
 
