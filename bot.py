@@ -29,7 +29,7 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot!")
+        await m.reply("🚫 You are banned from using this bot!/n @Fastest_Bots_Support")
         return
 
     try:
@@ -109,7 +109,7 @@ async def approve(_, m: Message):
         add_group(chat.id, user.id, chat.title, invite_link, chat_type)
         await app.approve_chat_join_request(chat.id, user.id)
 
-        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
+        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 By World Fastest Bot In 0.5 Seconds"
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
 
         add_user(user.id)
