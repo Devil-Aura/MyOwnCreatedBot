@@ -43,7 +43,7 @@ async def start(_, m: Message):
         key = InlineKeyboardMarkup(
             [[
                 InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),
-                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="https://t.me/Auto_Request_Accept_Fast_bot?start=6")
+                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")
             ]]
         )
         await m.reply_text(
@@ -84,6 +84,16 @@ async def start(_, m: Message):
         ),
         reply_markup=keyboard,
     )
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_callback_query(filters.regex("^check_again$"))
+async def check_again_callback(_, query: CallbackQuery):
+    # Delete the previous message
+    await query.message.delete()
+
+    # Send the /start command
+    await query.message.reply("/start")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
