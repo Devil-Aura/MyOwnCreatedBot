@@ -200,37 +200,44 @@ def get_welcome_message(chat_id):
 #━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Tracking ━━━━━━━━━━━━━━━━━━━━━━━
 
 def get_user_channels():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users")
-    users_list = cursor.fetchall()
-    conn.close()
-
+    # Fetch all channels/groups from MongoDB
+    user_channels = channels_collection.find({})
     channels = {}
-    for user in users_list:
-        user_id = user[0]
-        # Fetch user details from MongoDB
+
+    for channel in user_channels:
+        user_id = channel["user_id"]
+        chat_title = channel["chat_title"]
+        chat_url = channel["chat_url"]
+        chat_type = channel["type"]
+
+        # Fetch user details from MongoDB or Telegram
         user_data = users_collection.find_one({"user_id": user_id})
         if user_data:
             username = user_data.get("username", f"User-{user_id}")
-            # Fetch channels/groups where the bot is added
-            user_channels = channels_collection.find({"user_id": user_id})
+        else:
+            # If the user hasn't started the bot, fetch their username from Telegram
+            try:
+                user = app.get_users(user_id)
+                username = user.username or f"User-{user_id}"
+            except Exception:
+                username = f"User-{user_id}"
+
+        # Initialize the user's entry if it doesn't exist
+        if user_id not in channels:
             channels[user_id] = {"username": username, "channels": [], "groups": []}
-            for channel in user_channels:
-                if "type" in channel:  # Check if the 'type' key exists
-                    if channel["type"] == "channel":
-                        channels[user_id]["channels"].append({
-                            "chat_title": channel["chat_title"],
-                            "chat_url": channel["chat_url"],
-                            "type": "channel"
-                        })
-                    elif channel["type"] == "group":
-                        channels[user_id]["groups"].append({
-                            "chat_title": channel["chat_title"],
-                            "chat_url": channel["chat_url"],
-                            "type": "group"
-                        })
-    
+
+        # Add the channel/group to the user's entry
+        if chat_type == "channel":
+            channels[user_id]["channels"].append({
+                "chat_title": chat_title,
+                "chat_url": chat_url
+            })
+        elif chat_type == "group":
+            channels[user_id]["groups"].append({
+                "chat_title": chat_title,
+                "chat_url": chat_url
+            })
+
     return channels
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Initialize Database ━━━━━━━━━━━━━━━━━━━━━━━
