@@ -157,7 +157,8 @@ async def user_channels(_, m: Message):
     text = "**📋 Users & Their Channels/Groups:**\n"
     for user_id, details in channels.items():
         username = details["username"]
-        text += f"\n👤 **User:** [{username}](tg://user?id={user_id}) (ID: `{user_id}`)\n"  # Mention username and user ID
+        text += f"\n👤 **User Name:** {username}\n"
+        text += f"      **User ID:** `{user_id}`\n"
         if details["channels"]:
             text += "  📢 **Channels:**\n"
             for channel in details["channels"]:
