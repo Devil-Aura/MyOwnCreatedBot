@@ -29,7 +29,7 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot!")
+        await m.reply("🚫 You are banned from using this bot! (@Fastest_Bots_Support) ")
         return
 
     try:
@@ -75,7 +75,7 @@ async def start(_, m: Message):
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
-            f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n\n"
+            f"**🤗 Hello {m.from_user.mention}!\n\n"
             f"🚀 I am the FASTEST BOT, faster than light ⚡!"
             f"I approve join requests in just 0.5 seconds.\n"
             f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
@@ -93,7 +93,7 @@ async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
 
     # Send the /start command from the user's side
-    await query.message.reply("/start")
+    await query.message.reply("Click The /start Command")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
