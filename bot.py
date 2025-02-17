@@ -93,7 +93,7 @@ async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
 
     # Send the /start command from the user's side
-    await query.message.reply("/start")
+    await query.message.reply("**Click /start To Check You Are Joined**")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
