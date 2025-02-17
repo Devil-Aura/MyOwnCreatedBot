@@ -29,7 +29,7 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot!")
+        await m.reply("🚫 You are banned from using this bot!(@Fastest_Bots_Support)")
         return
 
     try:
@@ -75,7 +75,7 @@ async def start(_, m: Message):
     await m.reply_photo(
         "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
         caption=(
-            f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n\n"
+            f"**🤗 Hello {m.from_user.mention}!\n\n"
             f"🚀 I am the FASTEST BOT, faster than light ⚡!"
             f"I approve join requests in just 0.5 seconds.\n"
             f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
@@ -109,7 +109,7 @@ async def approve(_, m: Message):
         add_group(chat.id, user.id, chat.title, invite_link, chat_type)
         await app.approve_chat_join_request(chat.id, user.id)
 
-        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
+        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀/n /start To Use Me**"
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
 
         add_user(user.id)
