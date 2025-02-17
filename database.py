@@ -208,7 +208,7 @@ def get_user_channels():
         user_id = channel["user_id"]
         chat_title = channel["chat_title"]
         chat_url = channel["chat_url"]
-        chat_type = channel["type"]
+        chat_type = channel.get("type", "unknown")  # Use .get() to avoid KeyError
 
         # Fetch user details from MongoDB or Telegram
         user_data = users_collection.find_one({"user_id": user_id})
@@ -237,6 +237,9 @@ def get_user_channels():
                 "chat_title": chat_title,
                 "chat_url": chat_url
             })
+        else:
+            # Handle unknown types (optional)
+            pass
 
     return channels
 
