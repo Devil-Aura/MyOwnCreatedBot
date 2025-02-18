@@ -153,7 +153,14 @@ async def user_channels(_, m: Message):
         user_url = details.get("user_url", f"https://t.me/{user_name}")  # Fetch user URL
         username_tag = f"@{user_name}" if user_name else f"User-{user_id}"  # Format username tag
 
-        text += f"\n👤 **User Name:** [{user_name}]({user_url})\n"
+        # Fetch user's actual name from Telegram
+        try:
+            user = await app.get_users(user_id)
+            user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
+        except Exception:
+            user_name = "Unknown"
+
+        text += f"\n👤 **User Name:** {user_name}\n"
         text += f"      **User ID:** `{user_id}`\n"
         text += f"      **Username Tag:** {username_tag}\n"
 
