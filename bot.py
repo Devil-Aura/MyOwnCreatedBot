@@ -151,18 +151,19 @@ async def user_channels(_, m: Message):
     for user_id, details in channels.items():
         user_name = details.get("username", f"User-{user_id}")  # Fetch user name
         user_url = details.get("user_url", f"https://t.me/{user_name}")  # Fetch user URL
-        username_tag = f"@{user_name}" if user_name else f"User-{user_id}"  # Format username tag
 
-        # Fetch user's actual name from Telegram
+        # Fetch user's actual name and mention from Telegram
         try:
             user = await app.get_users(user_id)
             user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
+            user_mention = user.mention  # Use user mention (e.g., @username or name)
         except Exception:
             user_name = "Unknown"
+            user_mention = f"User-{user_id}"
 
         text += f"\n👤 **User Name:** {user_name}\n"
         text += f"      **User ID:** `{user_id}`\n"
-        text += f"      **Username Tag:** {username_tag}\n"
+        text += f"      **Username Tag:** {user_mention}\n"
 
         if details["channels"]:
             text += "  📢 **Channels:**\n"
