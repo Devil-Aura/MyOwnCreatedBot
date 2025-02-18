@@ -94,7 +94,7 @@ async def check_again_callback(_, query: CallbackQuery):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request(filters.group | filters.channel)
+@app.on_chat_join_request(filters.group | filters.channel))
 async def approve(_, m: Message):
     chat = m.chat
     user = m.from_user
@@ -104,8 +104,13 @@ async def approve(_, m: Message):
         invite_link = await app.export_chat_invite_link(chat.id)  # Fetch private invite link
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"
 
+        # Fetch user details
+        user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
+        username = user.username or f"User-{user.id}"  # Use username or fallback to User-<ID>
+        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"
+
         # Add group/channel with user details
-        add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=user.username, user_url=f"https://t.me/{user.username}")
+        add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=username, user_url=user_url)
 
         await app.approve_chat_join_request(chat.id, user.id)
 
@@ -144,9 +149,13 @@ async def user_channels(_, m: Message):
 
     text = "**📋 Users & Their Channels/Groups:**\n"
     for user_id, details in channels.items():
-        text += f"\n👤 **User Name:** [{details['username']}]({details['user_url']})\n"
+        user_name = details.get("username", f"User-{user_id}")  # Fetch user name
+        user_url = details.get("user_url", f"https://t.me/{user_name}")  # Fetch user URL
+        username_tag = f"@{user_name}" if user_name else f"User-{user_id}"  # Format username tag
+
+        text += f"\n👤 **User Name:** [{user_name}]({user_url})\n"
         text += f"      **User ID:** `{user_id}`\n"
-        text += f"      **Username Tag:** {details['username_tag']}\n"
+        text += f"      **Username Tag:** {username_tag}\n"
 
         if details["channels"]:
             text += "  📢 **Channels:**\n"
