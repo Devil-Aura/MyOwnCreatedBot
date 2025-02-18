@@ -94,7 +94,7 @@ async def check_again_callback(_, query: CallbackQuery):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request(filters.group | filters.channel))
+@app.on_chat_join_request(filters.group | filters.channel)
 async def approve(_, m: Message):
     chat = m.chat
     user = m.from_user
