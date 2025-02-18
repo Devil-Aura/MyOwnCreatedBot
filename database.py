@@ -6,7 +6,7 @@ from os import getenv
 MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # Connect to MongoDB
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)  # Disable SSL verification
 db = client["Cluster0"]  # Database name (change if needed)
 
 # Collections
