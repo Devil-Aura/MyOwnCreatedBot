@@ -7,7 +7,7 @@ from database import (
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    get_user_channels, users_collection  # Import users_collection
+    get_user_channels, users_collection
 )
 from config import cfg
 import asyncio
@@ -61,7 +61,7 @@ async def start(_, m: Message):
         f"🆔 **User ID:** `{user_id}`"
     )
 
-    add_user(user_id)  # Corrected indentation
+    add_user(user_id)
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
@@ -89,10 +89,7 @@ async def start(_, m: Message):
 
 @app.on_callback_query(filters.regex("^check_again$"))
 async def check_again_callback(_, query: CallbackQuery):
-    # Delete the previous message
     await query.message.delete()
-
-    # Send the /start command from the user's side
     await query.message.reply("**Click /start To Check You Are Joined**")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -103,10 +100,13 @@ async def approve(_, m: Message):
     user = m.from_user
 
     try:
-        # Fetch chat invite link if the bot has permission
-        invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
+        # Fetch the private invite link for the group/channel
+        invite_link = await app.export_chat_invite_link(chat.id)  # Fetch private invite link
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"
-        add_group(chat.id, user.id, chat.title, invite_link, chat_type)
+
+        # Add group/channel with user details
+        add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=user.username, user_url=f"https://t.me/{user.username}")
+
         await app.approve_chat_join_request(chat.id, user.id)
 
         welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀/n /start To Use Me**"
@@ -135,6 +135,33 @@ async def stats(_, m: Message):
         f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`"
     )
 
+@app.on_message(filters.command("User_Channels") & filters.user(cfg.SUDO))
+async def user_channels(_, m: Message):
+    channels = get_user_channels()
+    if not channels:
+        await m.reply("No users have added the bot to any channels/groups yet.")
+        return
+
+    text = "**📋 Users & Their Channels/Groups:**\n"
+    for user_id, details in channels.items():
+        text += f"\n👤 **User Name:** [{details['username']}]({details['user_url']})\n"
+        text += f"      **User ID:** `{user_id}`\n"
+        text += f"      **Username Tag:** {details['username_tag']}\n"
+
+        if details["channels"]:
+            text += "  📢 **Channels:**\n"
+            for channel in details["channels"]:
+                text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
+
+        if details["groups"]:
+            text += "  📢 **Groups:**\n"
+            for group in details["groups"]:
+                text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
+        else:
+            text += "  ❌ No channels/groups added.\n"
+
+    await m.reply(text, disable_web_page_preview=True)
+
 @app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
 async def set_welcome(_, m: Message):
     chat_id = m.chat.id
@@ -146,31 +173,6 @@ async def set_welcome(_, m: Message):
 
     set_welcome_message(chat_id, welcome_msg)
     await m.reply("✅ Welcome message updated successfully!")
-
-@app.on_message(filters.command("User_Channels") & filters.user(cfg.SUDO))
-async def user_channels(_, m: Message):
-    channels = get_user_channels()
-    if not channels:
-        await m.reply("No users have added the bot to any channels/groups yet.")
-        return
-
-    text = "**📋 Users & Their Channels/Groups:**\n"
-    for user_id, details in channels.items():
-        username = details["username"]
-        text += f"\n👤 **User Name:** {username}\n"
-        text += f"      **User ID:** `{user_id}`\n"
-        if details["channels"]:
-            text += "  📢 **Channels:**\n"
-            for channel in details["channels"]:
-                text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
-        if details["groups"]:
-            text += "  📢 **Groups:**\n"
-            for group in details["groups"]:
-                text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
-        else:
-            text += "  ❌ No channels/groups added.\n"
-
-    await m.reply(text, disable_web_page_preview=True)
 
 @app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
 async def disable_broadcast_cmd(_, m: Message):
