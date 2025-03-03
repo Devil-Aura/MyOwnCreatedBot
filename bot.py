@@ -1,4 +1,4 @@
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ChatMemberUpdated
 from pyrogram import filters, Client, errors, enums
 from pyrogram.errors import UserNotParticipant
 from pyrogram.errors.exceptions.flood_420 import FloodWait
@@ -19,7 +19,7 @@ app = Client(
     bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = -1002446826368  # Log channel ID
+LOG_CHANNEL = -1001234567890  # Replace with your actual log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -114,7 +114,7 @@ async def approve(_, m: Message):
 
         await app.approve_chat_join_request(chat.id, user.id)
 
-        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀/n /start To Use Me**"
+        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 /start To Use Me**"
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
 
         add_user(user.id)
@@ -122,6 +122,57 @@ async def approve(_, m: Message):
         print("User hasn't started the bot (group issue)")
     except Exception as e:
         print(str(e))
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Log Bot Added to Channel/Group ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_chat_member_updated()
+async def chat_member_updated(_, update: ChatMemberUpdated):
+    if update.new_chat_member and update.new_chat_member.user.id == app.id:
+        print("Bot was added to a chat!")  # Debugging log
+        chat = update.chat
+        user = update.from_user
+
+        # Fetch user details
+        user_name = user.first_name or "Unknown"
+        username = user.username or f"User-{user.id}"
+        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"
+        user_mention = user.mention
+
+        # Fetch chat invite link if the bot has permission
+        try:
+            invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
+        except Exception:
+            invite_link = "No invite link available"
+
+        # Customize log message based on chat type
+        if chat.type == enums.ChatType.CHANNEL:
+            log_message = (
+                f"**Bot Added to Channel!**\n\n"
+                f"👤 **User Name:** {user_name}\n"
+                f"🆔 **User ID:** `{user.id}`\n"
+                f"📛 **Username Tag:** @{username}\n"
+                f"👥 **User Mention:** {user_mention}\n"
+                f"📢 **Channel Name:** {chat.title}\n"
+                f"🔗 **Channel Link:** {invite_link}"
+            )
+        elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:
+            log_message = (
+                f"**Bot Added to Group!**\n\n"
+                f"👤 **User Name:** {user_name}\n"
+                f"🆔 **User ID:** `{user.id}`\n"
+                f"📛 **Username Tag:** @{username}\n"
+                f"👥 **User Mention:** {user_mention}\n"
+                f"📢 **Group Name:** {chat.title}\n"
+                f"🔗 **Group Link:** {invite_link}"
+            )
+        else:
+            return  # Ignore unknown chat types
+
+        # Send log message to the log channel
+        try:
+            await app.send_message(LOG_CHANNEL, log_message)
+        except Exception as e:
+            print(f"Failed to send log message: {e}")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -282,55 +333,6 @@ async def broadcast_message(_, m: Message):
         f"✅ Success: `{success}`\n"
         f"❌ Failed: `{failed}`"
     )
-
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Log Bot Added to Channel/Group ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@app.on_message(filters.new_chat_members)
-async def log_bot_added(_, m: Message):
-    # Check if the bot is added to a channel or group
-    if app.id in [user.id for user in m.new_chat_members]:
-        chat = m.chat
-        user = m.from_user
-
-        # Fetch user details
-        user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
-        username = user.username or f"User-{user.id}"  # Use username or fallback to User-<ID>
-        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"
-        user_mention = user.mention  # Use user mention (e.g., @username or name)
-
-        # Fetch chat invite link if the bot has permission
-        try:
-            invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
-        except Exception:
-            invite_link = "No invite link available"
-
-        # Customize log message based on chat type
-        if chat.type == enums.ChatType.CHANNEL:
-            log_message = (
-                f"**Bot Added to Channel!**\n\n"
-                f"👤 **User Name:** {user_name}\n"
-                f"🆔 **User ID:** `{user.id}`\n"
-                f"📛 **Username Tag:** @{username}\n"
-                f"👥 **User Mention:** {user_mention}\n"
-                f"📢 **Channel Name:** {chat.title}\n"
-                f"🔗 **Channel Link:** {invite_link}"
-            )
-        elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:
-            log_message = (
-                f"**Bot Added to Group!**\n\n"
-                f"👤 **User Name:** {user_name}\n"
-                f"🆔 **User ID:** `{user.id}`\n"
-                f"📛 **Username Tag:** @{username}\n"
-                f"👥 **User Mention:** {user_mention}\n"
-                f"📢 **Group Name:** {chat.title}\n"
-                f"🔗 **Group Link:** {invite_link}"
-            )
-
-        # Send log message to the log channel
-        await app.send_message(
-            LOG_CHANNEL,
-            log_message
-        )
 
 print("Bot is running!")
 app.run()
