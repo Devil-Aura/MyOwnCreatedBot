@@ -54,12 +54,15 @@ async def start(_, m: Message):
         return
 
     # Logging user activity
-    await app.send_message(
-        LOG_CHANNEL,
-        f"**New User Started the Bot!**\n\n"
-        f"👤 **User:** {user_mention}\n"
-        f"🆔 **User ID:** `{user_id}`"
-    )
+    try:
+        await app.send_message(
+            LOG_CHANNEL,
+            f"**New User Started the Bot!**\n\n"
+            f"👤 **User:** {user_mention}\n"
+            f"🆔 **User ID:** `{user_id}`"
+        )
+    except Exception as e:
+        print(f"Failed to send log message: {e}")
 
     add_user(user_id)
     keyboard = InlineKeyboardMarkup([
@@ -114,7 +117,7 @@ async def approve(_, m: Message):
 
         await app.approve_chat_join_request(chat.id, user.id)
 
-        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 /start To Use Me**"
+        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀    /start To Use Me**"
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
 
         add_user(user.id)
