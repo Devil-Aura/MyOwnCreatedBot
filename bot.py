@@ -19,7 +19,7 @@ app = Client(
     bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = -1001234567890  # Replace with your actual log channel ID
+LOG_CHANNEL = -1002446826368  # Replace with your actual log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
