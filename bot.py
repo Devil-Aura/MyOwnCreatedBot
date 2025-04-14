@@ -127,57 +127,46 @@ async def approve(_, m: Message):
     except Exception as e:
         print(str(e))
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Log Bot Added to Channel/Group ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_member_updated()
-async def chat_member_updated(_, update: ChatMemberUpdated):
-    if update.new_chat_member and update.new_chat_member.user.id == app.id:
-        print("Bot was added to a chat!")  # Debugging log
+async def log_bot_addition(_, update: ChatMemberUpdated):
+    # Only log when bot is added as admin
+    if (update.new_chat_member and 
+        update.new_chat_member.user.id == app.id and 
+        update.new_chat_member.status == "administrator"):
+        
         chat = update.chat
-        user = update.from_user
+        adder = update.from_user
 
-        # Fetch user details
-        user_name = user.first_name or "Unknown"
-        username = user.username or f"User-{user.id}"
-        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"
-        user_mention = user.mention
-
-        # Fetch chat invite link if the bot has permission
         try:
-            invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
-        except Exception:
-            invite_link = "No invite link available"
+            adder_username = f"@{adder.username}" if adder and adder.username else "No Username"
+            adder_mention = adder.mention if adder else "Unknown User"
+            chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
+            
+            try:
+                invite_link = await app.export_chat_invite_link(chat.id) if not chat.username else f"https://t.me/{chat.username}"
+            except:
+                invite_link = "No link available"
 
-        # Customize log message based on chat type
-        if chat.type == enums.ChatType.CHANNEL:
-            log_message = (
-                f"**Bot Added to Channel!**\n\n"
-                f"👤 **User Name:** {user_name}\n"
-                f"🆔 **User ID:** `{user.id}`\n"
-                f"📛 **Username Tag:** @{username}\n"
-                f"👥 **User Mention:** {user_mention}\n"
-                f"📢 **Channel Name:** {chat.title}\n"
-                f"🔗 **Channel Link:** {invite_link}"
+            await app.send_message(
+                LOG_CHANNEL,
+                f"🤖 **Bot Added to {chat_type}**\n\n"
+                f"▫️ **By:** {adder_mention}\n"
+                f"▫️ **Adder ID:** `{adder.id if adder else 'N/A'}`\n"
+                f"▫️ **Username:** {adder_username}\n\n"
+                f"📢 **{chat_type} Info**\n"
+                f"▫️ **Name:** {chat.title}\n"
+                f"▫️ **ID:** `{chat.id}`\n"
+                f"▫️ **Link:** {invite_link}\n\n"
+                f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                disable_web_page_preview=True
             )
-        elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:
-            log_message = (
-                f"**Bot Added to Group!**\n\n"
-                f"👤 **User Name:** {user_name}\n"
-                f"🆔 **User ID:** `{user.id}`\n"
-                f"📛 **Username Tag:** @{username}\n"
-                f"👥 **User Mention:** {user_mention}\n"
-                f"📢 **Group Name:** {chat.title}\n"
-                f"🔗 **Group Link:** {invite_link}"
-            )
-        else:
-            return  # Ignore unknown chat types
-
-        # Send log message to the log channel
-        try:
-            await app.send_message(LOG_CHANNEL, log_message)
+            
         except Exception as e:
-            print(f"Failed to send log message: {e}")
-
+            print(f"Bot addition log error: {e}")
+            
+            
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
