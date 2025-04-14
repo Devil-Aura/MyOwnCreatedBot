@@ -59,7 +59,8 @@ async def start(_, m: Message):
             LOG_CHANNEL,
             f"**New User Started the Bot!**\n\n"
             f"👤 **User:** {user_mention}\n"
-            f"🆔 **User ID:** `{user_id}`"
+            f"🆔 **User ID:** `{user_id}`\n"
+            f"📛 **Username:** {username}"
         )
     except Exception as e:
         print(f"Failed to send log message: {e}")
