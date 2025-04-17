@@ -48,8 +48,11 @@ async def start(_, m: Message):
         await m.reply("🚫 You are banned from using this bot! Contact @Fastest_Bots_Support")
         return
 
+    # Check if user has joined your channel (not if they've added bot as admin)
     try:
-        await app.get_chat_member(cfg.CHID, user_id)
+        member = await app.get_chat_member(cfg.CHID, user_id)
+        if member.status in [enums.ChatMemberStatus.LEFT, enums.ChatMemberStatus.BANNED]:
+            raise UserNotParticipant
     except UserNotParticipant:
         try:
             invite_link = await app.create_chat_invite_link(cfg.CHID)
@@ -67,9 +70,14 @@ async def start(_, m: Message):
             return
         except Exception as e:
             logger.error(f"Failed to create invite link: {e}")
-            await m.reply("**Make sure I am an admin in your channel!**")
+            await m.reply("**Make sure I am an admin in the update channel!**")
             return
+    except Exception as e:
+        logger.error(f"Error checking channel membership: {e}")
+        await m.reply("⚠️ An error occurred while checking your channel membership. Please try again later.")
+        return
 
+    # Rest of your start handler remains the same...
     try:
         if not users_collection.find_one({"user_id": user_id}):
             username = f"@{m.from_user.username}" if m.from_user.username else "No Username"
