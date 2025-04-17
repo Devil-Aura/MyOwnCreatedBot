@@ -29,11 +29,19 @@ app = Client(
     api_id=cfg.API_ID,
     api_hash=cfg.API_HASH,
     bot_token=cfg.BOT_TOKEN,
-    workdir="sessions",
-    plugins=dict(root="plugins")
+    workdir="sessions"
 )
 
 LOG_CHANNEL = -1002446826368  # Your actual log channel ID
+
+async def check_channel_access(chat_id):
+    """Check if bot has access to a channel"""
+    try:
+        await app.get_chat(chat_id)
+        return True
+    except Exception as e:
+        logger.error(f"Channel access check failed for {chat_id}: {e}")
+        return False
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -43,71 +51,68 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot! (@Fastest_Bots_Support)")
+        await m.reply("🚫 You are banned from using this bot!")
+        return
+
+    # First verify bot has access to the channel
+    if not await check_channel_access(cfg.CHID):
+        await m.reply("⚠️ Bot needs to be added to the channel first! Contact admin.")
         return
 
     try:
-        await app.get_chat_member(cfg.CHID, user_id)
-    except UserNotParticipant:
+        # Check if user is member
         try:
-            invite_link = await app.create_chat_invite_link(cfg.CHID)
-            key = InlineKeyboardMarkup(
-                [[
-                    InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),
-                    InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")
-                ]]
-            )
-            await m.reply_text(
-                "**⚠️ Access Denied! ⚠️**\n\n"
-                "Please join my update channel to use me. If you have already joined, click 'Check Again' to confirm.",
-                reply_markup=key
-            )
-            return
+            await app.get_chat_member(cfg.CHID, user_id)
+        except UserNotParticipant:
+            try:
+                invite_link = await app.create_chat_invite_link(cfg.CHID)
+                key = InlineKeyboardMarkup(
+                    [[
+                        InlineKeyboardButton("🍿 Join Channel 🍿", url=invite_link.invite_link),
+                        InlineKeyboardButton("🔄 Check Again 🔄", callback_data="check_again")
+                    ]]
+                )
+                await m.reply_text(
+                    "**⚠️ Join Required ⚠️**\n\n"
+                    "Please join our channel to use this bot.",
+                    reply_markup=key
+                )
+                return
+            except Exception as e:
+                logger.error(f"Invite creation failed: {e}")
+                await m.reply("❌ Couldn't generate invite link. Please contact admin.")
+                return
+
+        # Log new user
+        try:
+            if not users_collection.find_one({"user_id": user_id}):
+                username = f"@{m.from_user.username}" if m.from_user.username else "No Username"
+                await app.send_message(
+                    LOG_CHANNEL,
+                    f"**New User**\n\n"
+                    f"👤 {user_mention}\n"
+                    f"🆔 `{user_id}`\n"
+                    f"📛 {username}"
+                )
         except Exception as e:
-            logger.error(f"Failed to create invite link: {e}")
-            await m.reply("**Make sure I am an admin in your channel!**")
-            return
+            logger.error(f"Log failed: {e}")
 
-    try:
-        if not users_collection.find_one({"user_id": user_id}):
-            username = f"@{m.from_user.username}" if m.from_user.username else "No Username"
-            await app.send_message(
-                LOG_CHANNEL,
-                f"**New User Started the Bot!**\n\n"
-                f"👤 **User:** {user_mention}\n"
-                f"🆔 **ID:** `{user_id}`\n"
-                f"📛 **Username:** {username}"
-            )
-    except Exception as e:
-        logger.error(f"Failed to send log message: {e}")
-
-    add_user(user_id)
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
-            InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-        ],
-        [
-            InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel"),
-            InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
-        ],
-    ])
-    
-    try:
+        # Welcome message
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌐 Channel", url="https://t.me/World_Fastest_Bots")],
+            [InlineKeyboardButton("➕ Add to Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel")]
+        ])
+        
         await m.reply_photo(
             "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-            caption=(
-                f"**🤗 Hello {m.from_user.mention}!\n\n"
-                f"🚀 I am the FASTEST BOT, faster than light ⚡! "
-                f"I approve join requests in just 0.5 seconds.\n"
-                f"<blockquote>I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-                f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
-                f"Powered By: @World_Fastest_Bots**"
-            ),
-            reply_markup=keyboard,
+            caption=f"**Welcome {user_mention}!**\n\nI'm an auto-approval bot...",
+            reply_markup=keyboard
         )
+        add_user(user_id)
+
     except Exception as e:
-        logger.error(f"Failed to send welcome message: {e}")
+        logger.error(f"Start command failed: {e}")
+        await m.reply("⚠️ An error occurred. Please try again later.")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -121,133 +126,71 @@ async def check_again_callback(_, query: CallbackQuery):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_member_updated()
-async def log_bot_addition(_, update: ChatMemberUpdated):
+@app.on_chat_join_request(filters.group | filters.channel)
+async def approve(_, m: Message):
+    chat = m.chat
+    user = m.from_user
+
     try:
-        # Debugging: Print raw update
-        logger.info(f"Received chat member update: {update}")
+        await app.approve_chat_join_request(chat.id, user.id)
         
-        # Get bot's own ID
-        me = await app.get_me()
-        bot_id = me.id
-        logger.info(f"Bot ID: {bot_id}")
-        
-        # Check if this update is about our bot being added as admin
-        if (update.new_chat_member and 
-            update.new_chat_member.user.id == bot_id and 
-            update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
-            
-            logger.info("Bot was added as admin")
-            
-            chat = update.chat
-            adder = update.from_user
+        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome! Your request has been approved! 🚀**"
+        try:
+            await app.send_message(user.id, welcome_msg.format(
+                user_mention=user.mention, 
+                chat_title=chat.title
+            ))
+        except:
+            pass  # User hasn't started bot or blocked it
 
-            adder_name = adder.first_name if adder else "Unknown"
-            adder_username = f"@{adder.username}" if adder and adder.username else "No Username"
-            adder_id = adder.id if adder else "N/A"
-            
-            chat_type = "Private Channel" if chat.type == enums.ChatType.CHANNEL else "Private Group"
-            chat_title = chat.title or "Untitled"
-            chat_id = chat.id
-            
-            # Try to create invite link
-            invite_link = "Not available"
-            try:
-                result = await app.create_chat_invite_link(
-                    chat.id,
-                    name="Bot-Auto-Link",
-                    creates_join_request=True
-                )
-                invite_link = result.invite_link
-                logger.info(f"Created invite link: {invite_link}")
-            except Exception as e:
-                logger.error(f"Failed to create invite link: {e}")
-
-            # Prepare log message
-            log_message = (
-                f"🔒 **Bot Added to {chat_type}**\n\n"
-                f"👤 **Added by:** {adder_name}\n"
-                f"🆔 **User ID:** `{adder_id}`\n"
-                f"📛 **Username:** {adder_username}\n\n"
-                f"📢 **Chat Details:**\n"
-                f"• Name: {chat_title}\n"
-                f"• ID: `{chat_id}`\n"
-                f"• Invite Link: {invite_link}\n\n"
-                f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-
-            # Send to log channel
-            try:
-                logger.info(f"Sending to log channel: {LOG_CHANNEL}")
-                await app.send_message(
-                    LOG_CHANNEL,
-                    log_message,
-                    disable_web_page_preview=True
-                )
-                logger.info("Log message sent successfully")
-                
-                # Add to database
-                add_group(chat.id, adder.id if adder else None, chat_title, 
-                          invite_link, 
-                          "channel" if chat.type == enums.ChatType.CHANNEL else "group",
-                          username=adder_username)
-            except Exception as e:
-                logger.error(f"Failed to send log message: {e}")
+        add_user(user.id)
+        add_group(
+            chat.id, 
+            user.id, 
+            chat.title, 
+            "Not available",  # Don't try to get link here
+            "channel" if chat.type == enums.ChatType.CHANNEL else "group",
+            username=user.username or f"User-{user.id}"
+        )
 
     except Exception as e:
-        logger.error(f"Error in log_bot_addition: {e}", exc_info=True)
+        logger.error(f"Approval error: {e}")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_member_updated()
 async def log_bot_addition(client: Client, update: ChatMemberUpdated):
     try:
-        # First get the bot's ID safely
-        try:
-            me = await client.get_me()
-            bot_id = me.id
-        except Exception as e:
-            logger.error(f"Failed to get bot ID: {e}")
+        me = await client.get_me()
+        bot_id = me.id
+
+        # Check if this is about our bot becoming admin
+        if not (update.new_chat_member and 
+                update.new_chat_member.user.id == bot_id and
+                update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
             return
 
-        # Check if this update is relevant to our bot
-        if not (update.new_chat_member and update.new_chat_member.user.id == bot_id):
-            return
+        chat = update.chat
+        adder = update.from_user
 
-        # Verify it's an admin promotion event
-        if update.new_chat_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
-            return
+        # Prepare info with fallbacks
+        adder_info = {
+            'name': adder.first_name if adder else "Unknown",
+            'username': f"@{adder.username}" if adder and adder.username else "No Username",
+            'id': adder.id if adder else "N/A"
+        }
+        
+        chat_info = {
+            'type': "Channel" if chat.type == enums.ChatType.CHANNEL else "Group",
+            'title': chat.title or "Untitled",
+            'id': chat.id,
+            'is_private': not bool(chat.username)
+        }
 
-        logger.info(f"Bot was promoted to admin in {update.chat.id}")
-
-        # Get chat and adder info with proper error handling
-        try:
-            chat = update.chat
-            adder = update.from_user
-            
-            # Basic info collection with fallbacks
-            adder_info = {
-                'name': adder.first_name if adder else "Unknown",
-                'username': f"@{adder.username}" if adder and adder.username else "No Username",
-                'id': adder.id if adder else "N/A"
-            }
-            
-            chat_info = {
-                'type': "Channel" if chat.type == enums.ChatType.CHANNEL else "Group",
-                'title': chat.title or "Untitled",
-                'id': chat.id,
-                'is_private': not bool(chat.username)  # Best way to check if private
-            }
-            
-        except Exception as e:
-            logger.error(f"Failed to get chat/adder info: {e}")
-            return
-
-        # Handle invite link creation
+        # Try to create invite link if private
         invite_link = "Not available"
         if chat_info['is_private']:
             try:
-                # Check if bot has permission to create invite links
                 chat_member = await client.get_chat_member(chat_info['id'], bot_id)
                 if chat_member.privileges and chat_member.privileges.can_invite_users:
                     result = await client.create_chat_invite_link(
@@ -256,50 +199,47 @@ async def log_bot_addition(client: Client, update: ChatMemberUpdated):
                         creates_join_request=True
                     )
                     invite_link = result.invite_link
-                    logger.info(f"Created invite link for {chat_info['id']}")
             except Exception as e:
                 logger.error(f"Invite link creation failed: {e}")
 
         # Prepare and send log message
-        try:
-            log_message = (
-                f"🤖 **Bot Added to {chat_info['type']}**\n\n"
-                f"👤 **Added by:** {adder_info['name']}\n"
-                f"🆔 **User ID:** `{adder_info['id']}`\n"
-                f"📛 **Username:** {adder_info['username']}\n\n"
-                f"📢 **Chat Details:**\n"
-                f"• Name: {chat_info['title']}\n"
-                f"• Type: {'Private' if chat_info['is_private'] else 'Public'}\n"
-                f"• ID: `{chat_info['id']}`\n"
-                f"• Link: {invite_link}\n\n"
-                f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            )
+        log_message = (
+            f"🤖 **Bot Added to {chat_info['type']}**\n\n"
+            f"👤 **Added by:** {adder_info['name']}\n"
+            f"🆔 **User ID:** `{adder_info['id']}`\n"
+            f"📛 **Username:** {adder_info['username']}\n\n"
+            f"📢 **Chat Details:**\n"
+            f"• Name: {chat_info['title']}\n"
+            f"• Type: {'Private' if chat_info['is_private'] else 'Public'}\n"
+            f"• ID: `{chat_info['id']}`\n"
+            f"• Link: {invite_link}\n\n"
+            f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
 
-            await client.send_message(
-                LOG_CHANNEL,
-                log_message,
-                disable_web_page_preview=True
-            )
-            logger.info(f"Logged addition to {chat_info['id']}")
+        await client.send_message(
+            LOG_CHANNEL,
+            log_message,
+            disable_web_page_preview=True
+        )
 
-            # Database operations
-            try:
-                add_group(
-                    chat_info['id'],
-                    adder_info['id'],
-                    chat_info['title'],
-                    invite_link,
-                    "channel" if chat.type == enums.ChatType.CHANNEL else "group",
-                    username=adder_info['username']
-                )
-            except Exception as e:
-                logger.error(f"Database update failed: {e}")
-
-        except Exception as e:
-            logger.error(f"Log message failed: {e}")
+        # Add to database
+        add_group(
+            chat_info['id'],
+            adder_info['id'],
+            chat_info['title'],
+            invite_link,
+            "channel" if chat.type == enums.ChatType.CHANNEL else "group",
+            username=adder_info['username']
+        )
 
     except Exception as e:
-        logger.error(f"Unexpected error in log_bot_addition: {e}", exc_info=True)
+        logger.error(f"Error in log_bot_addition: {e}", exc_info=True)
+
+# [Rest of your admin commands remain exactly the same]
+
+if __name__ == "__main__":
+    logger.info("Starting bot...")
+    app.run()
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
