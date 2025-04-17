@@ -132,6 +132,7 @@ async def approve(_, m: Message):
 
 @app.on_chat_member_updated()
 async def log_bot_addition(_, update: ChatMemberUpdated):
+    # Only trigger when bot is added as admin
     if (update.new_chat_member and 
         update.new_chat_member.user.id == app.id and 
         update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
@@ -140,81 +141,40 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
         adder = update.from_user
 
         try:
-            # 1. Get adder info (handles anonymous admins)
-            adder_info = "👤 **Added By:** "
-            if adder:
-                if adder.is_anonymous:
-                    adder_info += "Anonymous Admin"
-                else:
-                    adder_info += f"{adder.mention} (ID: `{adder.id}`)"
-                
-                if adder.username:
-                    adder_info += f"\n🔗 **Username:** @{adder.username}"
-            else:
-                adder_info += "Unknown (possibly via invite link)"
+            adder_info = f"👤 Added By: {adder.mention if adder else 'Unknown'}\n"
+            adder_info += f"🆔 ID: `{adder.id if adder else 'N/A'}`\n"
+            if adder and adder.username:
+                adder_info += f"🔗 Username: @{adder.username}\n"
 
-            # 2. Get chat info (works for private channels/groups)
             chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
             
-            # 3. Get invite link (using bot's invite permission)
             try:
-                if chat.username:
-                    invite_link = f"https://t.me/{chat.username}"
-                else:
-                    invite_link = await app.export_chat_invite_link(chat.id)
-            except Exception as e:
-                invite_link = f"No link available (Error: {str(e)})"
-
-            # 4. Get member count (works for private chats)
-            try:
-                members_count = await app.get_chat_members_count(chat.id)
+                invite_link = await app.export_chat_invite_link(chat.id) if not chat.username else f"https://t.me/{chat.username}"
             except:
-                members_count = "Unknown (no access)"
+                invite_link = "No link available"
 
-            # 5. Get admin list (handles private chats)
-            admin_list = []
-            try:
-                async for member in app.get_chat_members(chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
-                    if member.user.is_bot:
-                        continue
-                    
-                    admin_entry = f"• {member.user.mention if not member.user.is_anonymous else 'Anonymous Admin'}"
-                    admin_entry += f" (ID: `{member.user.id}`)"
-                    
-                    if member.status == enums.ChatMemberStatus.OWNER:
-                        admin_entry += " 👑"
-                    if member.custom_title:
-                        admin_entry += f" [{member.custom_title}]"
-                    
-                    admin_list.append(admin_entry)
-            except Exception as e:
-                admin_list = [f"⚠️ Admin list unavailable: {str(e)}"]
-
-            # Compose the log message
-            log_msg = (
-                f"🤖 **Bot Added to Private {chat_type}**\n\n"
-                f"{adder_info}\n\n"
-                f"📢 **Chat Details**\n"
+            await app.send_message(
+                LOG_CHANNEL,
+                f"🤖 Bot Added to {chat_type}\n\n"
+                f"{adder_info}\n"
+                f"📢 {chat_type} Info\n"
                 f"▫️ Name: {chat.title}\n"
                 f"▫️ ID: `{chat.id}`\n"
-                f"▫️ Type: {'Private' if chat.invite_link else 'Public'} {chat_type}\n"
-                f"▫️ Members: `{members_count}`\n"
-                f"▫️ Invite Link: {invite_link}\n\n"
-                f"👮 **Admins ({len(admin_list)})**:\n" + "\n".join(admin_list) + 
-                f"\n\n🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                f"▫️ Link: {invite_link}\n"
+                f"▫️ Members: `{chat.members_count if hasattr(chat, 'members_count') else 'N/A'}`\n\n"
+                f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                disable_web_page_preview=True
             )
-
-            await app.send_message(LOG_CHANNEL, log_msg, disable_web_page_preview=True)
             
         except Exception as e:
-            error_msg = (
-                f"⚠️ **Failed to Log Bot Addition**\n\n"
-                f"Chat: {chat.title if chat else 'Unknown'}\n"
-                f"ID: `{chat.id if chat else 'N/A'}`\n"
-                f"Error: `{str(e)}`"
-            )
+            print(f"Bot addition log error: {e}")
             try:
-                await app.send_message(LOG_CHANNEL, error_msg)
+                await app.send_message(
+                    LOG_CHANNEL,
+                    f"⚠️ Failed to log bot addition\n"
+                    f"Chat: {chat.title if chat else 'Unknown'}\n"
+                    f"Error: {str(e)}"
+                )
             except:
                 pass
 
