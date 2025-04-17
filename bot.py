@@ -43,12 +43,14 @@ LOG_CHANNEL = -1002446826368  # Make sure to add this to your config.py
 async def start(_, m: Message):
     user_id = m.from_user.id
     user_mention = m.from_user.mention
+    username = f"@{m.from_user.username}" if m.from_user.username else "No Username"
 
+    # Check if user is banned
     if is_user_banned(user_id):
         await m.reply("🚫 You are banned from using this bot! Contact @Fastest_Bots_Support")
         return
 
-    # Check if user has joined your channel (not if they've added bot as admin)
+    # Check channel membership
     try:
         member = await app.get_chat_member(cfg.CHID, user_id)
         if member.status in [enums.ChatMemberStatus.LEFT, enums.ChatMemberStatus.BANNED]:
@@ -77,33 +79,32 @@ async def start(_, m: Message):
         await m.reply("⚠️ An error occurred while checking your channel membership. Please try again later.")
         return
 
-    # Rest of your start handler remains the same...
+    # Log new user
     try:
-        if not users_collection.find_one({"user_id": user_id}):
-            username = f"@{m.from_user.username}" if m.from_user.username else "No Username"
-            await app.send_message(
-                LOG_CHANNEL,
-                f"**New User Started the Bot!**\n\n"
-                f"👤 **User:** {user_mention}\n"
-                f"🆔 **ID:** `{user_id}`\n"
-                f"📛 **Username:** {username}"
-            )
+        await app.send_message(
+            cfg.LOG_CHANNEL,
+            f"**New User Started the Bot!**\n\n"
+            f"👤 **User:** {user_mention}\n"
+            f"🆔 **ID:** `{user_id}`\n"
+            f"📛 **Username:** {username}"
+        )
     except Exception as e:
         logger.error(f"Failed to send log message: {e}")
 
-    add_user(user_id)
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
-            InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-        ],
-        [
-            InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel"),
-            InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
-        ],
-    ])
-    
+    # Send welcome message
     try:
+        add_user(user_id)  # Add to database
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
+                InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
+            ],
+            [
+                InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel"),
+                InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
+            ],
+        ])
+        
         await m.reply_photo(
             "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
             caption=(
@@ -200,15 +201,14 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
             chat = update.chat
             adder = update.from_user
 
+            # Basic info
             adder_name = adder.first_name if adder else "Unknown"
             adder_username = f"@{adder.username}" if adder and adder.username else "No Username"
             adder_id = adder.id if adder else "N/A"
-
             chat_title = chat.title or "Untitled"
-            chat_id = chat.id
             chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
 
-            # Try to get an invite link
+            # Get invite link
             invite_link = "Not available"
             try:
                 result = await app.create_chat_invite_link(
@@ -220,20 +220,20 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
             except Exception as e:
                 logger.warning(f"Invite link generation failed: {e}")
 
-            # Fetch admin list
-            admin_info = ""
+            # Get admin list
+            admin_list = []
             try:
-                admins = await app.get_chat_members(chat_id=chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
-                for admin in admins:
-                    user = admin.user
-                    admin_name = user.first_name or "Unknown"
-                    admin_username = f"@{user.username}" if user.username else "No Username"
-                    admin_info += f"• {admin_name} | {admin_username} | `{user.id}`\n"
+                async for admin in app.get_chat_members(chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
+                    admin_list.append(
+                        f"• {admin.user.first_name or 'Unknown'} "
+                        f"(@{admin.user.username or 'no_username'}) "
+                        f"- `{admin.user.id}`"
+                    )
+                admin_info = "\n".join(admin_list) if admin_list else "No other admins found"
             except Exception as e:
-                admin_info = "Failed to fetch admin list."
-                logger.warning(f"Couldn't fetch admin list: {e}")
+                admin_info = f"Failed to fetch admin list: {str(e)}"
 
-            # Final log message
+            # Prepare log message
             log_message = (
                 f"✅ **Bot Added to {chat_type}**\n\n"
                 f"👤 **Added by:** {adder_name}\n"
@@ -241,21 +241,20 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
                 f"🔗 **Username:** {adder_username}\n\n"
                 f"📢 **{chat_type} Info:**\n"
                 f"• Title: {chat_title}\n"
-                f"• ID: `{chat_id}`\n"
+                f"• ID: `{chat.id}`\n"
                 f"• Invite Link: {invite_link}\n\n"
-                f"👮‍♂️ **Admins List:**\n{admin_info}\n"
+                f"👮‍♂️ **Admins List:**\n{admin_info}\n\n"
                 f"🕒 `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`"
             )
 
-            # Send to log channel
-            await app.send_message(LOG_CHANNEL, log_message, disable_web_page_preview=True)
-            logger.info(f"Logged bot addition to {chat_title}")
-
-            # Save to DB
+            # Send log
+            await app.send_message(cfg.LOG_CHANNEL, log_message, disable_web_page_preview=True)
+            
+            # Add to database
             add_group(
-                chat.id, 
-                adder.id if adder else None, 
-                chat_title, 
+                chat.id,
+                adder.id if adder else None,
+                chat_title,
                 invite_link,
                 "channel" if chat.type == enums.ChatType.CHANNEL else "group",
                 username=adder_username
@@ -265,13 +264,13 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
         logger.error(f"Bot join handler failed: {e}")
         try:
             await app.send_message(
-                LOG_CHANNEL,
+                cfg.LOG_CHANNEL,
                 f"⚠️ **Bot Addition Log Failed**\n\n"
-                f"**Error:** `{e}`"
+                f"**Error:** `{str(e)}`"
             )
         except Exception as log_err:
             logger.error(f"Failed to send error log: {log_err}")
-
+          
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
