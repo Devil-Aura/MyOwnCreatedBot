@@ -1,187 +1,184 @@
 import sqlite3
 from pymongo import MongoClient
 from os import getenv
+from datetime import datetime
 
-# Load MongoDB URI from environment variables
+# Database Configuration
 MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+DB_NAME = "bot_database.db"
 
-# Connect to MongoDB
-client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)  # Disable SSL verification
-db = client["Cluster0"]  # Database name (change if needed)
+# Connect to databases
+client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)
+mongo_db = client["Cluster0"]
 
 # Collections
-users_collection = db["users"]  # Collection for storing user data
-channels_collection = db["channels"]  # Collection for storing channel/group data
+users_collection = mongo_db["users"]
+groups_collection = mongo_db["groups"]  # Changed from channels_collection for consistency
+disabled_broadcast_collection = mongo_db["disabled_broadcast"]
+banned_users_collection = mongo_db["banned_users"]
+welcome_messages_collection = mongo_db["welcome_messages"]
 
-# Define DB Name for SQLite
-DB_NAME = "bot_database.db"  # Make sure DB_NAME is defined
-
-# Create Tables
+# Initialize SQLite
 def create_tables():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # Users Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
+    tables = [
+        """CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Groups/Channels Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS groups (
+        )""",
+        """CREATE TABLE IF NOT EXISTS groups (
             chat_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Disabled Broadcast Users
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS disabled_broadcast (
+        )""",
+        """CREATE TABLE IF NOT EXISTS disabled_broadcast (
             user_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Banned Users Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS banned_users (
+        )""",
+        """CREATE TABLE IF NOT EXISTS banned_users (
             user_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Welcome Messages Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS welcome_messages (
+        )""",
+        """CREATE TABLE IF NOT EXISTS welcome_messages (
             chat_id INTEGER PRIMARY KEY,
             message TEXT
-        )
-    """)
+        )"""
+    ]
 
+    for table in tables:
+        cursor.execute(table)
     conn.commit()
     conn.close()
 
 #━━━━━━━━━━━━━━━━━━━━━━━ User Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def add_user(user_id):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
-    # Add to MongoDB
-    users_collection.insert_one({"user_id": user_id})
+    # MongoDB
+    users_collection.update_one(
+        {"user_id": user_id},
+        {"$setOnInsert": {"user_id": user_id, "created_at": datetime.now()}},
+        upsert=True
+    )
 
 def remove_user(user_id):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
+    # MongoDB
+    users_collection.delete_one({"user_id": user_id})
+
 def all_users():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM users")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+    # Using MongoDB count for better performance
+    return users_collection.count_documents({})
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
-def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None, user_url=None):
+def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO groups (chat_id) VALUES (?)", (chat_id,))
     conn.commit()
     conn.close()
 
-    # Add to MongoDB
-    channels_collection.insert_one({
-        "user_id": user_id,
-        "username": username or f"User-{user_id}",  # Add username
-        "user_url": user_url or f"https://t.me/{username}",  # Add user URL
-        "chat_id": chat_id,
-        "chat_title": chat_title,
-        "chat_url": chat_url,
-        "type": chat_type  # Ensure this field is always added
-    })
+    # MongoDB
+    groups_collection.update_one(
+        {"chat_id": chat_id},
+        {"$set": {
+            "user_id": user_id,
+            "username": username or f"User-{user_id}",
+            "chat_title": chat_title,
+            "chat_url": chat_url,
+            "type": chat_type,
+            "last_updated": datetime.now()
+        }},
+        upsert=True
+    )
 
 def all_groups():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM groups")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+    return groups_collection.count_documents({})
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Control ━━━━━━━━━━━━━━━━━━━━━━━
 
 def disable_broadcast(user_id):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO disabled_broadcast (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
+    # MongoDB
+    disabled_broadcast_collection.update_one(
+        {"user_id": user_id},
+        {"$setOnInsert": {"user_id": user_id}},
+        upsert=True
+    )
+
 def enable_broadcast(user_id):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM disabled_broadcast WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
+    # MongoDB
+    disabled_broadcast_collection.delete_one({"user_id": user_id})
+
 def is_broadcast_disabled(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM disabled_broadcast WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
+    # Using MongoDB for faster lookup
+    return disabled_broadcast_collection.find_one({"user_id": user_id}) is not None
 
 def get_disabled_broadcast_users():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM disabled_broadcast")
-    users = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return users
+    return [user["user_id"] for user in disabled_broadcast_collection.find({}, {"user_id": 1})]
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Ban Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def ban_user(user_id):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO banned_users (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
+    # MongoDB
+    banned_users_collection.update_one(
+        {"user_id": user_id},
+        {"$setOnInsert": {"user_id": user_id, "banned_at": datetime.now()}},
+        upsert=True
+    )
+
 def unban_user(user_id):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
+    # MongoDB
+    banned_users_collection.delete_one({"user_id": user_id})
+
 def is_user_banned(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM banned_users WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
+    return banned_users_collection.find_one({"user_id": user_id}) is not None
 
 def get_banned_users():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM banned_users")
-    users = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return users
+    return [user["user_id"] for user in banned_users_collection.find({}, {"user_id": 1})]
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Welcome Message Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def set_welcome_message(chat_id, message):
+    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
@@ -191,18 +188,17 @@ def set_welcome_message(chat_id, message):
     conn.commit()
     conn.close()
 
+    # MongoDB
+    welcome_messages_collection.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"message": message, "updated_at": datetime.now()}},
+        upsert=True
+    )
+
 def get_welcome_message(chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT message FROM welcome_messages WHERE chat_id = ?", (chat_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result[0] if result else None
+    # Using MongoDB for faster access
+    result = welcome_messages_collection.find_one({"chat_id": chat_id})
+    return result["message"] if result else None
 
-#━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Tracking ━━━━━━━━━━━━━━━━━━━━━━━
-
-#We Will Back Soon...!!
-
-#━━━━━━━━━━━━━━━━━━━━━━━ Initialize Database ━━━━━━━━━━━━━━━━━━━━━━━
-
+# Initialize the database
 create_tables()
