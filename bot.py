@@ -152,62 +152,80 @@ async def approve(_, m: Message):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_member_updated()
+@app.on_my_chat_member_updated()
 async def log_bot_addition(_, update: ChatMemberUpdated):
     try:
         bot_id = (await app.get_me()).id
-        if (update.new_chat_member and 
-            update.new_chat_member.user.id == bot_id and 
-            update.new_chat_member.status == "administrator"):
-            
+        if (
+            update.new_chat_member and
+            update.new_chat_member.user.id == bot_id and
+            update.new_chat_member.status == "administrator"
+        ):
             chat = update.chat
             adder = update.from_user
 
             adder_name = adder.first_name if adder else "Unknown"
             adder_username = f"@{adder.username}" if adder and adder.username else "No Username"
             adder_id = adder.id if adder else "N/A"
-            
-            chat_type = "Private Channel" if chat.type == enums.ChatType.CHANNEL else "Private Group"
+
             chat_title = chat.title or "Untitled"
             chat_id = chat.id
-            
+            chat_type = "Private Channel" if chat.type == enums.ChatType.CHANNEL else "Private Group"
+
+            # Try to get an invite link
             invite_link = "Not available"
             try:
                 result = await app.create_chat_invite_link(
                     chat.id,
-                    name="Bot-Auto-Link",
+                    name="Auto Log Invite",
                     creates_join_request=True
                 )
                 invite_link = result.invite_link
             except Exception as e:
-                logger.error(f"Failed to create invite link: {e}")
+                logger.warning(f"Invite link generation failed: {e}")
 
+            # Fetch admin list
+            admin_info = ""
+            try:
+                admins = await app.get_chat_members(chat_id=chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
+                for admin in admins:
+                    user = admin.user
+                    admin_name = user.first_name
+                    admin_username = f"@{user.username}" if user.username else "No Username"
+                    admin_info += f"• {admin_name} | {admin_username} | `{user.id}`\n"
+            except Exception as e:
+                admin_info = "Failed to fetch admin list."
+                logger.warning(f"Couldn't fetch admin list: {e}")
+
+            # Final log message
             log_message = (
-                f"🔒 **Bot Added to {chat_type}**\n\n"
+                f"✅ **Bot Added to {chat_type}**\n\n"
                 f"👤 **Added by:** {adder_name}\n"
                 f"🆔 **User ID:** `{adder_id}`\n"
-                f"📛 **Username:** {adder_username}\n\n"
-                f"📢 **Chat Details:**\n"
-                f"• Name: {chat_title}\n"
+                f"🔗 **Username:** {adder_username}\n\n"
+                f"📢 **{chat_type} Info:**\n"
+                f"• Title: {chat_title}\n"
                 f"• ID: `{chat_id}`\n"
                 f"• Invite Link: {invite_link}\n\n"
-                f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                f"👮‍♂️ **Admins List:**\n{admin_info}\n"
+                f"🕒 `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`"
             )
 
-            try:
-                await app.send_message(
-                    LOG_CHANNEL,
-                    log_message,
-                    disable_web_page_preview=True
-                )
-                add_group(chat.id, adder.id if adder else None, chat_title, invite_link, 
-                         "channel" if chat.type == enums.ChatType.CHANNEL else "group",
-                         username=adder_username)
-            except Exception as e:
-                logger.error(f"Failed to send log: {e}")
+            # Send to log channel
+            await app.send_message(LOG_CHANNEL, log_message, disable_web_page_preview=True)
+
+            # Save to DB
+            add_group(
+                chat.id, 
+                adder.id if adder else None, 
+                chat_title, 
+                invite_link,
+                "channel" if chat.type == enums.ChatType.CHANNEL else "group",
+                username=adder_username
+            )
 
     except Exception as e:
-        logger.error(f"Bot addition handler error: {e}")
+        logger.error(f"Bot join handler failed: {e}")
         
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
