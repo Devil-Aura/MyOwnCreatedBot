@@ -201,43 +201,7 @@ def get_welcome_message(chat_id):
 
 #━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Tracking ━━━━━━━━━━━━━━━━━━━━━━━
 
-def get_user_channels():
-    # Fetch all channels/groups from MongoDB
-    user_channels = channels_collection.find({})
-    channels = {}
-
-    for channel in user_channels:
-        user_id = channel["user_id"]
-        chat_title = channel["chat_title"]
-        chat_url = channel["chat_url"]
-        chat_type = channel.get("type", "unknown")  # Use .get() to avoid KeyError
-        username = channel.get("username", f"User-{user_id}")  # Fetch username
-        user_url = channel.get("user_url", f"https://t.me/{username}")  # Fetch user URL
-
-        # Initialize the user's entry if it doesn't exist
-        if user_id not in channels:
-            channels[user_id] = {
-                "username": username,
-                "user_url": user_url,
-                "user_id": user_id,
-                "username_tag": f"@{username}" if username else f"User-{user_id}",
-                "channels": [],
-                "groups": []
-            }
-
-        # Add the channel/group to the user's entry
-        if chat_type == "channel":
-            channels[user_id]["channels"].append({
-                "chat_title": chat_title,
-                "chat_url": chat_url
-            })
-        elif chat_type == "group":
-            channels[user_id]["groups"].append({
-                "chat_title": chat_title,
-                "chat_url": chat_url
-            })
-
-    return channels
+#We Will Back Soon...!!
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Initialize Database ━━━━━━━━━━━━━━━━━━━━━━━
 
