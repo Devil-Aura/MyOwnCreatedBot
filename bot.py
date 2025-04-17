@@ -1,4 +1,11 @@
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from pyrogram.types import (
+    Message, 
+    InlineKeyboardButton, 
+    InlineKeyboardMarkup, 
+    CallbackQuery,
+    ChatMemberUpdated,  # Added this import
+    ChatJoinRequest     # Added this import
+)
 from pyrogram import filters, Client, errors, enums
 from pyrogram.errors import UserNotParticipant
 from pyrogram.errors.exceptions.flood_420 import FloodWait
@@ -7,10 +14,11 @@ from database import (
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    get_user_channels, users_collection  # Import users_collection
+    users_collection
 )
 from config import cfg
 import asyncio
+from datetime import datetime  # Make sure this is imported
 
 app = Client(
     "approver",
@@ -19,7 +27,9 @@ app = Client(
     bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = -1002446826368  # Log channel ID
+LOG_CHANNEL = -1002446826368  # Your log channel ID
+
+# [Rest of your bot code remains the same, including all the handler functions]
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
