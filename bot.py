@@ -2,14 +2,17 @@ import os
 import asyncio
 import logging
 from datetime import datetime
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ChatMemberUpdated
-from pyrogram import filters, Client, errors, enums
+from pyrogram.types import (Message, InlineKeyboardButton, 
+                          InlineKeyboardMarkup, CallbackQuery, 
+                          ChatMemberUpdated, ChatJoinRequest)
+from pyrogram import filters, Client, enums
 from pyrogram.errors import UserNotParticipant, FloodWait
 from database import (
     add_user, add_group, all_users, all_groups, remove_user,
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
-    get_disabled_broadcast_users, set_welcome_message, get_welcome_message, users_collection
+    get_disabled_broadcast_users, set_welcome_message, 
+    get_welcome_message, users_collection, groups_collection
 )
 from config import cfg
 
@@ -32,7 +35,7 @@ app = Client(
     plugins=dict(root="plugins")
 )
 
-LOG_CHANNEL = -1002446826368  # Your actual log channel ID
+LOG_CHANNEL = -1002446826368  # Make sure to add this to your config.py
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -42,7 +45,7 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot! (@Fastest_Bots_Support)")
+        await m.reply("🚫 You are banned from using this bot! Contact @Fastest_Bots_Support")
         return
 
     try:
@@ -107,6 +110,7 @@ async def start(_, m: Message):
         )
     except Exception as e:
         logger.error(f"Failed to send welcome message: {e}")
+        await m.reply("Welcome to the bot!")  # Fallback message
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -120,34 +124,59 @@ async def check_again_callback(_, query: CallbackQuery):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request(filters.group | filters.channel)
-async def approve(_, m: Message):
-    chat = m.chat
-    user = m.from_user
+@app.on_chat_join_request()
+async def approve(_, join_request: ChatJoinRequest):
+    chat = join_request.chat
+    user = join_request.from_user
 
     try:
-        # Try to get invite link (won't work in private channels without permission)
+        # Try to get invite link
         try:
             invite_link = await app.export_chat_invite_link(chat.id)
         except:
             invite_link = "Not available"
 
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"
-        username = user.username or f"User-{user.id}"
+        username = f"@{user.username}" if user.username else f"User-{user.id}"
 
         await app.approve_chat_join_request(chat.id, user.id)
+        logger.info(f"Approved join request for {username} in {chat.title}")
 
-        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 /start To Use Me**"
+        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 /start To Use Me"
         try:
-            await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
-        except:
-            pass  # User hasn't started bot or blocked it
+            await app.send_message(
+                user.id,
+                welcome_msg.format(
+                    user_mention=user.mention,
+                    chat_title=chat.title
+                )
+            )
+        except Exception as e:
+            logger.warning(f"Couldn't send welcome message to {username}: {e}")
 
         add_user(user.id)
-        add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=username)
+        add_group(
+            chat.id,
+            user.id,
+            chat.title,
+            invite_link,
+            chat_type,
+            username=username
+        )
 
     except Exception as e:
-        logger.error(f"Approval error: {e}")
+        logger.error(f"Approval error in {chat.id}: {e}")
+        try:
+            await app.send_message(
+                LOG_CHANNEL,
+                f"⚠️ **Approval Failed**\n\n"
+                f"**Chat:** {chat.title}\n"
+                f"**ID:** `{chat.id}`\n"
+                f"**User:** {user.mention}\n"
+                f"**Error:** `{e}`"
+            )
+        except Exception as log_err:
+            logger.error(f"Failed to send error log: {log_err}")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -155,11 +184,10 @@ async def approve(_, m: Message):
 async def log_bot_addition(_, update: ChatMemberUpdated):
     try:
         bot_id = (await app.get_me()).id
-        if (
-            update.new_chat_member and
-            update.new_chat_member.user.id == bot_id and
-            update.new_chat_member.status == "administrator"
-        ):
+        if (update.new_chat_member and 
+            update.new_chat_member.user.id == bot_id and 
+            update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
+            
             chat = update.chat
             adder = update.from_user
 
@@ -169,7 +197,7 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
 
             chat_title = chat.title or "Untitled"
             chat_id = chat.id
-            chat_type = "Private Channel" if chat.type == enums.ChatType.CHANNEL else "Private Group"
+            chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
 
             # Try to get an invite link
             invite_link = "Not available"
@@ -189,7 +217,7 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
                 admins = await app.get_chat_members(chat_id=chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
                 for admin in admins:
                     user = admin.user
-                    admin_name = user.first_name
+                    admin_name = user.first_name or "Unknown"
                     admin_username = f"@{user.username}" if user.username else "No Username"
                     admin_info += f"• {admin_name} | {admin_username} | `{user.id}`\n"
             except Exception as e:
@@ -212,6 +240,7 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
 
             # Send to log channel
             await app.send_message(LOG_CHANNEL, log_message, disable_web_page_preview=True)
+            logger.info(f"Logged bot addition to {chat_title}")
 
             # Save to DB
             add_group(
@@ -225,7 +254,15 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
 
     except Exception as e:
         logger.error(f"Bot join handler failed: {e}")
-        
+        try:
+            await app.send_message(
+                LOG_CHANNEL,
+                f"⚠️ **Bot Addition Log Failed**\n\n"
+                f"**Error:** `{e}`"
+            )
+        except Exception as log_err:
+            logger.error(f"Failed to send error log: {log_err}")
+
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
@@ -243,148 +280,145 @@ async def stats(_, m: Message):
         f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`"
     )
 
-@app.on_message(filters.command("User_Channels") & filters.user(cfg.SUDO))
-async def user_channels(_, m: Message):
-    channels = get_user_channels()
-    if not channels:
-        await m.reply("No users have added the bot to any channels/groups yet.")
-        return
-
-    text = "**📋 Users & Their Channels/Groups:**\n"
-    for user_id, details in channels.items():
-        user_name = details.get("username", f"User-{user_id}")  # Fetch user name
-        user_url = details.get("user_url", f"https://t.me/{user_name}")  # Fetch user URL
-
-        # Fetch user's actual name and username from Telegram
-        try:
-            user = await app.get_users(user_id)
-            user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
-            username = user.username or f"User-{user_id}"  # Use username or fallback to User-<ID>
-            user_tag = f"@{username}" if username else user_name  # Use @username if available, else use name
-            user_mention = user.mention  # Use user mention (e.g., @username or name)
-        except Exception:
-            user_name = "Unknown"
-            user_tag = f"User-{user_id}"
-            user_mention = f"User-{user_id}"
-
-        text += f"\n👤 **User Name:** {user_name}\n"
-        text += f"      **User ID:** `{user_id}`\n"
-        text += f"      **Username Tag:** {user_tag}\n"
-        text += f"      **User Mention:** {user_mention}\n"
-
-        if details["channels"]:
-            text += "  📢 **Channels:**\n"
-            for channel in details["channels"]:
-                text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
-
-        if details["groups"]:
-            text += "  📢 **Groups:**\n"
-            for group in details["groups"]:
-                text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
-        else:
-            text += "  ❌ No channels/groups added.\n"
-
-    await m.reply(text, disable_web_page_preview=True)
-
-@app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
+@app.on_message(filters.command(["set_welcome", "set_welcome_msg"]) & filters.user(cfg.SUDO))
 async def set_welcome(_, m: Message):
-    chat_id = m.chat.id
-    welcome_msg = m.text.split(None, 1)[1] if len(m.text.split()) > 1 else None
-
-    if not welcome_msg:
-        await m.reply("⚠️ Please provide a welcome message!")
+    if len(m.command) < 2:
+        await m.reply("⚠️ Usage: /set_welcome <message>")
         return
 
+    chat_id = m.chat.id
+    welcome_msg = m.text.split(None, 1)[1]
+    
     set_welcome_message(chat_id, welcome_msg)
     await m.reply("✅ Welcome message updated successfully!")
 
-@app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
 async def disable_broadcast_cmd(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Please provide a user ID!")
+        await m.reply("⚠️ Usage: /disable_broadcast <user_id>")
         return
 
-    user_id = int(m.command[1])
-    disable_broadcast(user_id)
-    await m.reply(f"🚫 Broadcasts disabled for `{user_id}`.")
+    try:
+        user_id = int(m.command[1])
+        disable_broadcast(user_id)
+        await m.reply(f"🚫 Broadcasts disabled for user `{user_id}`.")
+    except ValueError:
+        await m.reply("⚠️ Invalid user ID!")
 
-@app.on_message(filters.command("Unable_Boardcast") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
 async def enable_broadcast_cmd(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Please provide a user ID!")
+        await m.reply("⚠️ Usage: /enable_broadcast <user_id>")
         return
 
-    user_id = int(m.command[1])
-    enable_broadcast(user_id)
-    await m.reply(f"🔔 Broadcasts enabled for `{user_id}`.")
+    try:
+        user_id = int(m.command[1])
+        enable_broadcast(user_id)
+        await m.reply(f"🔔 Broadcasts enabled for user `{user_id}`.")
+    except ValueError:
+        await m.reply("⚠️ Invalid user ID!")
 
-@app.on_message(filters.command("Shows_Disable_Boardcast_Users") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("disabled_users") & filters.user(cfg.SUDO))
 async def show_disabled_broadcasts(_, m: Message):
     users = get_disabled_broadcast_users()
+    if not users:
+        await m.reply("No users have disabled broadcasts.")
+        return
+        
     text = "🔕 **Users with Disabled Broadcasts:**\n" + "\n".join(f"👤 `{user}`" for user in users)
     await m.reply(text)
 
-@app.on_message(filters.command("Ban") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
 async def ban(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Please provide a user ID!")
+        await m.reply("⚠️ Usage: /ban <user_id>")
         return
 
-    user_id = int(m.command[1])
-    ban_user(user_id)
-    await m.reply(f"🚫 User `{user_id}` has been banned!")
+    try:
+        user_id = int(m.command[1])
+        ban_user(user_id)
+        await m.reply(f"🚫 User `{user_id}` has been banned!")
+    except ValueError:
+        await m.reply("⚠️ Invalid user ID!")
 
-@app.on_message(filters.command("Unban") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("unban") & filters.user(cfg.SUDO))
 async def unban(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Please provide a user ID!")
+        await m.reply("⚠️ Usage: /unban <user_id>")
         return
 
-    user_id = int(m.command[1])
-    unban_user(user_id)
-    await m.reply(f"✅ User `{user_id}` has been unbanned!")
+    try:
+        user_id = int(m.command[1])
+        unban_user(user_id)
+        await m.reply(f"✅ User `{user_id}` has been unbanned!")
+    except ValueError:
+        await m.reply("⚠️ Invalid user ID!")
 
-@app.on_message(filters.command("Shows_Banusers") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("banned_users") & filters.user(cfg.SUDO))
 async def show_banned_users(_, m: Message):
     users = get_banned_users()
+    if not users:
+        await m.reply("No users are currently banned.")
+        return
+        
     text = "🚫 **Banned Users:**\n" + "\n".join(f"👤 `{user}`" for user in users)
     await m.reply(text)
 
 @app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
 async def broadcast_message(_, m: Message):
-    # Check if the command is used as a reply
     if not m.reply_to_message:
         await m.reply("⚠️ Please reply to a message to broadcast it!")
         return
 
-    # Get the replied message
     broadcast_msg = m.reply_to_message
+    processing_msg = await m.reply("📢 Starting broadcast...")
 
-    # Get all users except banned and disabled broadcast users
-    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  # Fetch all unique user IDs from MongoDB
-    disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users
-    banned_users = get_banned_users()  # Fetch banned users
+    all_users_list = [user["user_id"] for user in users_collection.find({})]
+    disabled_users = get_disabled_broadcast_users()
+    banned_users = get_banned_users()
 
     success = 0
     failed = 0
+    blocked = 0
 
-    # Send the message to all users
     for user_id in all_users_list:
-        if user_id not in disabled_users and user_id not in banned_users:
-            try:
-                await broadcast_msg.copy(user_id)  # Send the message only once
-                success += 1
-            except Exception as e:
-                print(f"Failed to send message to {user_id}: {e}")
-                failed += 1
-        await asyncio.sleep(0.1)  # To avoid flooding
+        if user_id in disabled_users or user_id in banned_users:
+            continue
+            
+        try:
+            await broadcast_msg.copy(user_id)
+            success += 1
+        except FloodWait as e:
+            await asyncio.sleep(e.value)
+            continue
+        except errors.UserIsBlocked:
+            blocked += 1
+            remove_user(user_id)
+        except Exception as e:
+            logger.error(f"Failed to send to {user_id}: {e}")
+            failed += 1
+            
+        await asyncio.sleep(0.1)  # Small delay to prevent flooding
 
-    # Send broadcast stats to the admin
-    await m.reply(
+        # Update progress every 50 sends
+        if (success + failed) % 50 == 0:
+            try:
+                await processing_msg.edit_text(
+                    f"📢 Broadcasting in progress...\n\n"
+                    f"✅ Success: {success}\n"
+                    f"❌ Failed: {failed}\n"
+                    f"🚫 Blocked: {blocked}"
+                )
+            except:
+                pass
+
+    await processing_msg.edit_text(
         f"📢 **Broadcast Completed!**\n\n"
         f"✅ Success: `{success}`\n"
-        f"❌ Failed: `{failed}`"
+        f"❌ Failed: `{failed}`\n"
+        f"🚫 Blocked: `{blocked}`"
     )
 
-print("Bot is running!")
-app.run()
+if __name__ == "__main__":
+    print("Bot is starting...")
+    app.run()
