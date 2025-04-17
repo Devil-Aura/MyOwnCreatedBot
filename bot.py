@@ -122,7 +122,6 @@ async def approve(_, m: Message):
 
 @app.on_chat_member_updated()
 async def log_bot_addition(_, update: ChatMemberUpdated):
-    # Only trigger when bot is added as admin
     if (update.new_chat_member and 
         update.new_chat_member.user.id == app.id and 
         update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
@@ -131,74 +130,84 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
         adder = update.from_user
 
         try:
-            # Get basic adder info
-            adder_info = ""
+            # 1. Get adder info (handles anonymous admins)
+            adder_info = "👤 **Added By:** "
             if adder:
-                adder_info = (
-                    f"👤 **Added By:** {adder.mention}\n"
-                    f"🆔 **Adder ID:** `{adder.id}`\n"
-                    f"🔗 **Username:** @{adder.username if adder.username else 'N/A'}\n"
-                )
+                if adder.is_anonymous:
+                    adder_info += "Anonymous Admin"
+                else:
+                    adder_info += f"{adder.mention} (ID: `{adder.id}`)"
+                
+                if adder.username:
+                    adder_info += f"\n🔗 **Username:** @{adder.username}"
             else:
-                adder_info = "👤 **Added By:** Unknown (possibly anonymous admin)\n"
+                adder_info += "Unknown (possibly via invite link)"
 
-            # Get chat type and basic info
+            # 2. Get chat info (works for private channels/groups)
             chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
             
-            # Try to get invite link
+            # 3. Get invite link (using bot's invite permission)
             try:
-                invite_link = await app.export_chat_invite_link(chat.id) if not chat.username else f"https://t.me/{chat.username}"
-            except:
-                invite_link = "No link available"
+                if chat.username:
+                    invite_link = f"https://t.me/{chat.username}"
+                else:
+                    invite_link = await app.export_chat_invite_link(chat.id)
+            except Exception as e:
+                invite_link = f"No link available (Error: {str(e)})"
 
-            # Get all administrators
+            # 4. Get member count (works for private chats)
+            try:
+                members_count = await app.get_chat_members_count(chat.id)
+            except:
+                members_count = "Unknown (no access)"
+
+            # 5. Get admin list (handles private chats)
             admin_list = []
             try:
                 async for member in app.get_chat_members(chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
                     if member.user.is_bot:
-                        continue  # Skip other bots
+                        continue
                     
-                    admin_info = f"• {member.user.mention} (ID: `{member.user.id}`)"
-                    if member.custom_title:
-                        admin_info += f" - {member.custom_title}"
+                    admin_entry = f"• {member.user.mention if not member.user.is_anonymous else 'Anonymous Admin'}"
+                    admin_entry += f" (ID: `{member.user.id}`)"
+                    
                     if member.status == enums.ChatMemberStatus.OWNER:
-                        admin_info += " 👑 (Owner)"
+                        admin_entry += " 👑"
+                    if member.custom_title:
+                        admin_entry += f" [{member.custom_title}]"
                     
-                    admin_list.append(admin_info)
+                    admin_list.append(admin_entry)
             except Exception as e:
-                admin_list = [f"⚠️ Could not fetch admin list: {str(e)}"]
+                admin_list = [f"⚠️ Admin list unavailable: {str(e)}"]
 
-            # Prepare the log message
-            log_message = (
-                f"🤖 **Bot Added to {chat_type}**\n\n"
-                f"{adder_info}\n"
-                f"📢 **{chat_type} Info**\n"
-                f"▫️ **Name:** {chat.title}\n"
-                f"▫️ **ID:** `{chat.id}`\n"
-                f"▫️ **Link:** {invite_link}\n"
-                f"▫️ **Members:** `{chat.members_count if hasattr(chat, 'members_count') else 'N/A'}`\n\n"
-                f"👮 **Administrators ({len(admin_list)}):**\n"
-                + "\n".join(admin_list) + f"\n\n🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-
-            await app.send_message(
-                LOG_CHANNEL,
-                log_message,
-                disable_web_page_preview=True
+            # Compose the log message
+            log_msg = (
+                f"🤖 **Bot Added to Private {chat_type}**\n\n"
+                f"{adder_info}\n\n"
+                f"📢 **Chat Details**\n"
+                f"▫️ Name: {chat.title}\n"
+                f"▫️ ID: `{chat.id}`\n"
+                f"▫️ Type: {'Private' if chat.invite_link else 'Public'} {chat_type}\n"
+                f"▫️ Members: `{members_count}`\n"
+                f"▫️ Invite Link: {invite_link}\n\n"
+                f"👮 **Admins ({len(admin_list)})**:\n" + "\n".join(admin_list) + 
+                f"\n\n🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
+
+            await app.send_message(LOG_CHANNEL, log_msg, disable_web_page_preview=True)
             
         except Exception as e:
-            print(f"Error logging bot addition: {e}")
+            error_msg = (
+                f"⚠️ **Failed to Log Bot Addition**\n\n"
+                f"Chat: {chat.title if chat else 'Unknown'}\n"
+                f"ID: `{chat.id if chat else 'N/A'}`\n"
+                f"Error: `{str(e)}`"
+            )
             try:
-                await app.send_message(
-                    LOG_CHANNEL,
-                    f"⚠️ **Partial Bot Addition Log**\n\n"
-                    f"Chat: {chat.title}\n"
-                    f"ID: `{chat.id}`\n"
-                    f"Error: {str(e)}"
-                )
+                await app.send_message(LOG_CHANNEL, error_msg)
             except:
                 pass
-                
+
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
