@@ -180,9 +180,10 @@ async def approve(_, join_request: ChatJoinRequest):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_my_chat_member_updated()
+@app.on_chat_member_updated()
 async def log_bot_addition(_, update: ChatMemberUpdated):
     try:
+        # Check if the update is about the bot being added as admin
         bot_id = (await app.get_me()).id
         if (update.new_chat_member and 
             update.new_chat_member.user.id == bot_id and 
