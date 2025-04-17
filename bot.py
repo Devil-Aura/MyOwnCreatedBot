@@ -200,62 +200,107 @@ async def log_bot_addition(_, update: ChatMemberUpdated):
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_member_updated()
-async def log_bot_addition(_, update: ChatMemberUpdated):
+async def log_bot_addition(client: Client, update: ChatMemberUpdated):
     try:
-        bot_id = (await app.get_me()).id
-        if (update.new_chat_member and 
-            update.new_chat_member.user.id == bot_id and 
-            update.new_chat_member.status == "administrator"):
-            
+        # First get the bot's ID safely
+        try:
+            me = await client.get_me()
+            bot_id = me.id
+        except Exception as e:
+            logger.error(f"Failed to get bot ID: {e}")
+            return
+
+        # Check if this update is relevant to our bot
+        if not (update.new_chat_member and update.new_chat_member.user.id == bot_id):
+            return
+
+        # Verify it's an admin promotion event
+        if update.new_chat_member.status != enums.ChatMemberStatus.ADMINISTRATOR:
+            return
+
+        logger.info(f"Bot was promoted to admin in {update.chat.id}")
+
+        # Get chat and adder info with proper error handling
+        try:
             chat = update.chat
             adder = update.from_user
+            
+            # Basic info collection with fallbacks
+            adder_info = {
+                'name': adder.first_name if adder else "Unknown",
+                'username': f"@{adder.username}" if adder and adder.username else "No Username",
+                'id': adder.id if adder else "N/A"
+            }
+            
+            chat_info = {
+                'type': "Channel" if chat.type == enums.ChatType.CHANNEL else "Group",
+                'title': chat.title or "Untitled",
+                'id': chat.id,
+                'is_private': not bool(chat.username)  # Best way to check if private
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get chat/adder info: {e}")
+            return
 
-            adder_name = adder.first_name if adder else "Unknown"
-            adder_username = f"@{adder.username}" if adder and adder.username else "No Username"
-            adder_id = adder.id if adder else "N/A"
-            
-            chat_type = "Private Channel" if chat.type == enums.ChatType.CHANNEL else "Private Group"
-            chat_title = chat.title or "Untitled"
-            chat_id = chat.id
-            
-            invite_link = "Not available"
+        # Handle invite link creation
+        invite_link = "Not available"
+        if chat_info['is_private']:
             try:
-                result = await app.create_chat_invite_link(
-                    chat.id,
-                    name="Bot-Auto-Link",
-                    creates_join_request=True
-                )
-                invite_link = result.invite_link
+                # Check if bot has permission to create invite links
+                chat_member = await client.get_chat_member(chat_info['id'], bot_id)
+                if chat_member.privileges and chat_member.privileges.can_invite_users:
+                    result = await client.create_chat_invite_link(
+                        chat_info['id'],
+                        name="Bot-Generated-Link",
+                        creates_join_request=True
+                    )
+                    invite_link = result.invite_link
+                    logger.info(f"Created invite link for {chat_info['id']}")
             except Exception as e:
-                logger.error(f"Failed to create invite link: {e}")
+                logger.error(f"Invite link creation failed: {e}")
 
+        # Prepare and send log message
+        try:
             log_message = (
-                f"🔒 **Bot Added to {chat_type}**\n\n"
-                f"👤 **Added by:** {adder_name}\n"
-                f"🆔 **User ID:** `{adder_id}`\n"
-                f"📛 **Username:** {adder_username}\n\n"
+                f"🤖 **Bot Added to {chat_info['type']}**\n\n"
+                f"👤 **Added by:** {adder_info['name']}\n"
+                f"🆔 **User ID:** `{adder_info['id']}`\n"
+                f"📛 **Username:** {adder_info['username']}\n\n"
                 f"📢 **Chat Details:**\n"
-                f"• Name: {chat_title}\n"
-                f"• ID: `{chat_id}`\n"
-                f"• Invite Link: {invite_link}\n\n"
+                f"• Name: {chat_info['title']}\n"
+                f"• Type: {'Private' if chat_info['is_private'] else 'Public'}\n"
+                f"• ID: `{chat_info['id']}`\n"
+                f"• Link: {invite_link}\n\n"
                 f"🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
             )
 
+            await client.send_message(
+                LOG_CHANNEL,
+                log_message,
+                disable_web_page_preview=True
+            )
+            logger.info(f"Logged addition to {chat_info['id']}")
+
+            # Database operations
             try:
-                await app.send_message(
-                    LOG_CHANNEL,
-                    log_message,
-                    disable_web_page_preview=True
+                add_group(
+                    chat_info['id'],
+                    adder_info['id'],
+                    chat_info['title'],
+                    invite_link,
+                    "channel" if chat.type == enums.ChatType.CHANNEL else "group",
+                    username=adder_info['username']
                 )
-                add_group(chat.id, adder.id if adder else None, chat_title, invite_link, 
-                         "channel" if chat.type == enums.ChatType.CHANNEL else "group",
-                         username=adder_username)
             except Exception as e:
-                logger.error(f"Failed to send log: {e}")
+                logger.error(f"Database update failed: {e}")
+
+        except Exception as e:
+            logger.error(f"Log message failed: {e}")
 
     except Exception as e:
-        logger.error(f"Bot addition handler error: {e}")
-        
+        logger.error(f"Unexpected error in log_bot_addition: {e}", exc_info=True)
+
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
