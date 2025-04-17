@@ -1,41 +1,25 @@
-import os
-import asyncio
-import logging
-from datetime import datetime
-from pyrogram.types import (Message, InlineKeyboardButton, 
-                          InlineKeyboardMarkup, CallbackQuery, 
-                          ChatMemberUpdated, ChatJoinRequest)
-from pyrogram import filters, Client, enums
-from pyrogram.errors import UserNotParticipant, FloodWait
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from pyrogram import filters, Client, errors, enums
+from pyrogram.errors import UserNotParticipant
+from pyrogram.errors.exceptions.flood_420 import FloodWait
 from database import (
     add_user, add_group, all_users, all_groups, remove_user,
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
-    get_disabled_broadcast_users, set_welcome_message, 
-    get_welcome_message, users_collection, groups_collection
+    get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
+    get_user_channels, users_collection  # Import users_collection
 )
 from config import cfg
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Ensure session directory exists
-os.makedirs("sessions", exist_ok=True)
+import asyncio
 
 app = Client(
     "approver",
     api_id=cfg.API_ID,
     api_hash=cfg.API_HASH,
-    bot_token=cfg.BOT_TOKEN,
-    workdir="sessions",
-    plugins=dict(root="plugins")
+    bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = -1002446826368  # Make sure to add this to your config.py
+LOG_CHANNEL = -1002446826368  # Log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -43,234 +27,178 @@ LOG_CHANNEL = -1002446826368  # Make sure to add this to your config.py
 async def start(_, m: Message):
     user_id = m.from_user.id
     user_mention = m.from_user.mention
-    username = f"@{m.from_user.username}" if m.from_user.username else "No Username"
 
-    # Check if user is banned
     if is_user_banned(user_id):
-        await m.reply("🚫 You are banned from using this bot! Contact @Fastest_Bots_Support")
+        await m.reply("🚫 You are banned from using this bot!")
         return
 
-    # Check channel membership
     try:
-        member = await app.get_chat_member(cfg.CHID, user_id)
-        if member.status in [enums.ChatMemberStatus.LEFT, enums.ChatMemberStatus.BANNED]:
-            raise UserNotParticipant
+        await app.get_chat_member(cfg.CHID, user_id)
     except UserNotParticipant:
         try:
             invite_link = await app.create_chat_invite_link(cfg.CHID)
-            key = InlineKeyboardMarkup(
-                [[
-                    InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),
-                    InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")
-                ]]
-            )
-            await m.reply_text(
-                "**⚠️ Access Denied! ⚠️**\n\n"
-                "Please join my update channel to use me. If you have already joined, click 'Check Again' to confirm.",
-                reply_markup=key
-            )
+        except:
+            await m.reply("**Make sure I am an admin in your channel!**")
             return
-        except Exception as e:
-            logger.error(f"Failed to create invite link: {e}")
-            await m.reply("**Make sure I am an admin in the update channel!**")
-            return
-    except Exception as e:
-        logger.error(f"Error checking channel membership: {e}")
-        await m.reply("⚠️ An error occurred while checking your channel membership. Please try again later.")
+        key = InlineKeyboardMarkup(
+            [[
+                InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),
+                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")
+            ]]
+        )
+        await m.reply_text(
+            "**⚠️ Access Denied! ⚠️**\n\n"
+            "Please join my update channel to use me. If you have already joined, click 'Check Again' to confirm.",
+            reply_markup=key
+        )
         return
 
-    # Log new user
-    try:
-        await app.send_message(
-            cfg.LOG_CHANNEL,
-            f"**New User Started the Bot!**\n\n"
-            f"👤 **User:** {user_mention}\n"
-            f"🆔 **ID:** `{user_id}`\n"
-            f"📛 **Username:** {username}"
-        )
-    except Exception as e:
-        logger.error(f"Failed to send log message: {e}")
+    # Logging user activity
+    await app.send_message(
+        LOG_CHANNEL,
+        f"**New User Started the Bot!**\n\n"
+        f"👤 **User:** {user_mention}\n"
+        f"🆔 **User ID:** `{user_id}`"
+    )
 
-    # Send welcome message
-    try:
-        add_user(user_id)  # Add to database
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
-                InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
-            ],
-            [
-                InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel"),
-                InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
-            ],
-        ])
-        
-        await m.reply_photo(
-            "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-            caption=(
-                f"**🤗 Hello {m.from_user.mention}!\n\n"
-                f"🚀 I am the FASTEST BOT, faster than light ⚡! "
-                f"I approve join requests in just 0.5 seconds.\n"
-                f"<blockquote>I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-                f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
-                f"Powered By: @World_Fastest_Bots**"
-            ),
-            reply_markup=keyboard,
-        )
-    except Exception as e:
-        logger.error(f"Failed to send welcome message: {e}")
-        await m.reply("Welcome to the bot!")  # Fallback message
+    add_user(user_id)  # Corrected indentation
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("🗯 Channel", url="https://t.me/World_Fastest_Bots"),
+            InlineKeyboardButton("💬 Support", url="https://t.me/Fastest_Bots_Support"),
+        ],
+        [
+            InlineKeyboardButton("➕ Add Me in Channel", url="https://t.me/Auto_Request_Accept_Fast_bot?startchannel"),
+            InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),
+        ],
+    ])
+    await m.reply_photo(
+        "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
+        caption=(
+            f"**🙋🏻‍♂️ Hello {m.from_user.mention}!\n\n"
+            f"🚀 I am the FASTEST BOT, faster than light ⚡!"
+            f"I approve join requests in just 0.5 seconds.\n"
+            f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
+            f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
+            f"Powered By : @World_Fastest_Bots**"
+        ),
+        reply_markup=keyboard,
+    )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_callback_query(filters.regex("^check_again$"))
 async def check_again_callback(_, query: CallbackQuery):
-    try:
-        await query.message.delete()
-        await query.message.reply("**Click /start To Check You Are Joined**")
-    except Exception as e:
-        logger.error(f"Callback error: {e}")
+    # Delete the previous message
+    await query.message.delete()
+
+    # Send the /start command from the user's side
+    await query.message.reply("/start")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request()
-async def approve(_, join_request: ChatJoinRequest):
-    chat = join_request.chat
-    user = join_request.from_user
+@app.on_chat_join_request(filters.group | filters.channel)
+async def approve(_, m: Message):
+    chat = m.chat
+    user = m.from_user
 
     try:
-        # Try to get invite link
-        try:
-            invite_link = await app.export_chat_invite_link(chat.id)
-        except:
-            invite_link = "Not available"
-
+        # Fetch chat invite link if the bot has permission
+        invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"
-        username = f"@{user.username}" if user.username else f"User-{user.id}"
-
+        add_group(chat.id, user.id, chat.title, invite_link, chat_type)
         await app.approve_chat_join_request(chat.id, user.id)
-        logger.info(f"Approved join request for {username} in {chat.title}")
 
-        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀 /start To Use Me"
-        try:
-            await app.send_message(
-                user.id,
-                welcome_msg.format(
-                    user_mention=user.mention,
-                    chat_title=chat.title
-                )
-            )
-        except Exception as e:
-            logger.warning(f"Couldn't send welcome message to {username}: {e}")
+        welcome_msg = get_welcome_message(chat.id) or "🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀"
+        await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
 
         add_user(user.id)
-        add_group(
-            chat.id,
-            user.id,
-            chat.title,
-            invite_link,
-            chat_type,
-            username=username
-        )
-
+    except errors.PeerIdInvalid:
+        print("User hasn't started the bot (group issue)")
     except Exception as e:
-        logger.error(f"Approval error in {chat.id}: {e}")
-        try:
-            await app.send_message(
-                LOG_CHANNEL,
-                f"⚠️ **Approval Failed**\n\n"
-                f"**Chat:** {chat.title}\n"
-                f"**ID:** `{chat.id}`\n"
-                f"**User:** {user.mention}\n"
-                f"**Error:** `{e}`"
-            )
-        except Exception as log_err:
-            logger.error(f"Failed to send error log: {log_err}")
+        print(str(e))
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Addition Logger ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_member_updated()
 async def log_bot_addition(_, update: ChatMemberUpdated):
-    try:
-        # Check if the update is about the bot being added as admin
-        bot_id = (await app.get_me()).id
-        if (update.new_chat_member and 
-            update.new_chat_member.user.id == bot_id and 
-            update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
-            
-            chat = update.chat
-            adder = update.from_user
+    # Only trigger when bot is added as admin
+    if (update.new_chat_member and 
+        update.new_chat_member.user.id == app.id and 
+        update.new_chat_member.status == enums.ChatMemberStatus.ADMINISTRATOR):
+        
+        chat = update.chat
+        adder = update.from_user
 
-            # Basic info
-            adder_name = adder.first_name if adder else "Unknown"
-            adder_username = f"@{adder.username}" if adder and adder.username else "No Username"
-            adder_id = adder.id if adder else "N/A"
-            chat_title = chat.title or "Untitled"
-            chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
-
-            # Get invite link
-            invite_link = "Not available"
-            try:
-                result = await app.create_chat_invite_link(
-                    chat.id,
-                    name="Auto Log Invite",
-                    creates_join_request=True
+        try:
+            # Get basic adder info
+            adder_info = ""
+            if adder:
+                adder_info = (
+                    f"👤 **Added By:** {adder.mention}\n"
+                    f"🆔 **Adder ID:** `{adder.id}`\n"
+                    f"🔗 **Username:** @{adder.username if adder.username else 'N/A'}\n"
                 )
-                invite_link = result.invite_link
-            except Exception as e:
-                logger.warning(f"Invite link generation failed: {e}")
+            else:
+                adder_info = "👤 **Added By:** Unknown (possibly anonymous admin)\n"
 
-            # Get admin list
+            # Get chat type and basic info
+            chat_type = "Channel" if chat.type == enums.ChatType.CHANNEL else "Group"
+            
+            # Try to get invite link
+            try:
+                invite_link = await app.export_chat_invite_link(chat.id) if not chat.username else f"https://t.me/{chat.username}"
+            except:
+                invite_link = "No link available"
+
+            # Get all administrators
             admin_list = []
             try:
-                async for admin in app.get_chat_members(chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
-                    admin_list.append(
-                        f"• {admin.user.first_name or 'Unknown'} "
-                        f"(@{admin.user.username or 'no_username'}) "
-                        f"- `{admin.user.id}`"
-                    )
-                admin_info = "\n".join(admin_list) if admin_list else "No other admins found"
+                async for member in app.get_chat_members(chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS):
+                    if member.user.is_bot:
+                        continue  # Skip other bots
+                    
+                    admin_info = f"• {member.user.mention} (ID: `{member.user.id}`)"
+                    if member.custom_title:
+                        admin_info += f" - {member.custom_title}"
+                    if member.status == enums.ChatMemberStatus.OWNER:
+                        admin_info += " 👑 (Owner)"
+                    
+                    admin_list.append(admin_info)
             except Exception as e:
-                admin_info = f"Failed to fetch admin list: {str(e)}"
+                admin_list = [f"⚠️ Could not fetch admin list: {str(e)}"]
 
-            # Prepare log message
+            # Prepare the log message
             log_message = (
-                f"✅ **Bot Added to {chat_type}**\n\n"
-                f"👤 **Added by:** {adder_name}\n"
-                f"🆔 **User ID:** `{adder_id}`\n"
-                f"🔗 **Username:** {adder_username}\n\n"
-                f"📢 **{chat_type} Info:**\n"
-                f"• Title: {chat_title}\n"
-                f"• ID: `{chat.id}`\n"
-                f"• Invite Link: {invite_link}\n\n"
-                f"👮‍♂️ **Admins List:**\n{admin_info}\n\n"
-                f"🕒 `{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}`"
-            )
+                f"🤖 **Bot Added to {chat_type}**\n\n"
+                f"{adder_info}\n"
+                f"📢 **{chat_type} Info**\n"
+                f"▫️ **Name:** {chat.title}\n"
+                f"▫️ **ID:** `{chat.id}`\n"
+                f"▫️ **Link:** {invite_link}\n"
+                f"▫️ **Members:** `{chat.members_count if hasattr(chat, 'members_count') else 'N/A'}`\n\n"
+                f"👮 **Administrators ({len(admin_list)}):**\n"
+                + "\n".join(admin_list) + f"\n\n🕒 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
-            # Send log
-            await app.send_message(cfg.LOG_CHANNEL, log_message, disable_web_page_preview=True)
-            
-            # Add to database
-            add_group(
-                chat.id,
-                adder.id if adder else None,
-                chat_title,
-                invite_link,
-                "channel" if chat.type == enums.ChatType.CHANNEL else "group",
-                username=adder_username
-            )
-
-    except Exception as e:
-        logger.error(f"Bot join handler failed: {e}")
-        try:
             await app.send_message(
-                cfg.LOG_CHANNEL,
-                f"⚠️ **Bot Addition Log Failed**\n\n"
-                f"**Error:** `{str(e)}`"
+                LOG_CHANNEL,
+                log_message,
+                disable_web_page_preview=True
             )
-        except Exception as log_err:
-            logger.error(f"Failed to send error log: {log_err}")
-          
+            
+        except Exception as e:
+            print(f"Error logging bot addition: {e}")
+            try:
+                await app.send_message(
+                    LOG_CHANNEL,
+                    f"⚠️ **Partial Bot Addition Log**\n\n"
+                    f"Chat: {chat.title}\n"
+                    f"ID: `{chat.id}`\n"
+                    f"Error: {str(e)}"
+                )
+            except:
+                pass
+                
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
@@ -288,145 +216,129 @@ async def stats(_, m: Message):
         f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`"
     )
 
-@app.on_message(filters.command(["set_welcome", "set_welcome_msg"]) & filters.user(cfg.SUDO))
+@app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
 async def set_welcome(_, m: Message):
-    if len(m.command) < 2:
-        await m.reply("⚠️ Usage: /set_welcome <message>")
+    chat_id = m.chat.id
+    welcome_msg = m.text.split(None, 1)[1] if len(m.text.split()) > 1 else None
+
+    if not welcome_msg:
+        await m.reply("⚠️ Please provide a welcome message!")
         return
 
-    chat_id = m.chat.id
-    welcome_msg = m.text.split(None, 1)[1]
-    
     set_welcome_message(chat_id, welcome_msg)
     await m.reply("✅ Welcome message updated successfully!")
 
-@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("User_Channels") & filters.user(cfg.SUDO))
+async def user_channels(_, m: Message):
+    channels = get_user_channels()
+    if not channels:
+        await m.reply("No users have added the bot to any channels/groups yet.")
+        return
+
+    text = "**📋 Users & Their Channels/Groups:**\n"
+    for user_id, details in channels.items():
+        username = details["username"]
+        text += f"\n👤 **User:** [{username}](tg://user?id={user_id}) (ID: `{user_id}`)\n"  # Mention username and user ID
+        if details["channels"]:
+            text += "  📢 **Channels:**\n"
+            for channel in details["channels"]:
+                text += f"    - [{channel['chat_title']}]({channel['chat_url']})\n"
+        if details["groups"]:
+            text += "  📢 **Groups:**\n"
+            for group in details["groups"]:
+                text += f"    - [{group['chat_title']}]({group['chat_url']})\n"
+        else:
+            text += "  ❌ No channels/groups added.\n"
+
+    await m.reply(text, disable_web_page_preview=True)
+
+@app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
 async def disable_broadcast_cmd(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Usage: /disable_broadcast <user_id>")
+        await m.reply("⚠️ Please provide a user ID!")
         return
 
-    try:
-        user_id = int(m.command[1])
-        disable_broadcast(user_id)
-        await m.reply(f"🚫 Broadcasts disabled for user `{user_id}`.")
-    except ValueError:
-        await m.reply("⚠️ Invalid user ID!")
+    user_id = int(m.command[1])
+    disable_broadcast(user_id)
+    await m.reply(f"🚫 Broadcasts disabled for `{user_id}`.")
 
-@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("Unable_Boardcast") & filters.user(cfg.SUDO))
 async def enable_broadcast_cmd(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Usage: /enable_broadcast <user_id>")
+        await m.reply("⚠️ Please provide a user ID!")
         return
 
-    try:
-        user_id = int(m.command[1])
-        enable_broadcast(user_id)
-        await m.reply(f"🔔 Broadcasts enabled for user `{user_id}`.")
-    except ValueError:
-        await m.reply("⚠️ Invalid user ID!")
+    user_id = int(m.command[1])
+    enable_broadcast(user_id)
+    await m.reply(f"🔔 Broadcasts enabled for `{user_id}`.")
 
-@app.on_message(filters.command("disabled_users") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("Shows_Disable_Boardcast_Users") & filters.user(cfg.SUDO))
 async def show_disabled_broadcasts(_, m: Message):
     users = get_disabled_broadcast_users()
-    if not users:
-        await m.reply("No users have disabled broadcasts.")
-        return
-        
     text = "🔕 **Users with Disabled Broadcasts:**\n" + "\n".join(f"👤 `{user}`" for user in users)
     await m.reply(text)
 
-@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("Ban") & filters.user(cfg.SUDO))
 async def ban(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Usage: /ban <user_id>")
+        await m.reply("⚠️ Please provide a user ID!")
         return
 
-    try:
-        user_id = int(m.command[1])
-        ban_user(user_id)
-        await m.reply(f"🚫 User `{user_id}` has been banned!")
-    except ValueError:
-        await m.reply("⚠️ Invalid user ID!")
+    user_id = int(m.command[1])
+    ban_user(user_id)
+    await m.reply(f"🚫 User `{user_id}` has been banned!")
 
-@app.on_message(filters.command("unban") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("Unban") & filters.user(cfg.SUDO))
 async def unban(_, m: Message):
     if len(m.command) < 2:
-        await m.reply("⚠️ Usage: /unban <user_id>")
+        await m.reply("⚠️ Please provide a user ID!")
         return
 
-    try:
-        user_id = int(m.command[1])
-        unban_user(user_id)
-        await m.reply(f"✅ User `{user_id}` has been unbanned!")
-    except ValueError:
-        await m.reply("⚠️ Invalid user ID!")
+    user_id = int(m.command[1])
+    unban_user(user_id)
+    await m.reply(f"✅ User `{user_id}` has been unbanned!")
 
-@app.on_message(filters.command("banned_users") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("Shows_Banusers") & filters.user(cfg.SUDO))
 async def show_banned_users(_, m: Message):
     users = get_banned_users()
-    if not users:
-        await m.reply("No users are currently banned.")
-        return
-        
     text = "🚫 **Banned Users:**\n" + "\n".join(f"👤 `{user}`" for user in users)
     await m.reply(text)
 
 @app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
 async def broadcast_message(_, m: Message):
+    # Check if the command is used as a reply
     if not m.reply_to_message:
         await m.reply("⚠️ Please reply to a message to broadcast it!")
         return
 
+    # Get the replied message
     broadcast_msg = m.reply_to_message
-    processing_msg = await m.reply("📢 Starting broadcast...")
 
-    all_users_list = [user["user_id"] for user in users_collection.find({})]
-    disabled_users = get_disabled_broadcast_users()
-    banned_users = get_banned_users()
+    # Get all users except banned and disabled broadcast users
+    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  # Fetch all unique user IDs from MongoDB
+    disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users
+    banned_users = get_banned_users()  # Fetch banned users
 
     success = 0
     failed = 0
-    blocked = 0
 
+    # Send the message to all users
     for user_id in all_users_list:
-        if user_id in disabled_users or user_id in banned_users:
-            continue
-            
-        try:
-            await broadcast_msg.copy(user_id)
-            success += 1
-        except FloodWait as e:
-            await asyncio.sleep(e.value)
-            continue
-        except errors.UserIsBlocked:
-            blocked += 1
-            remove_user(user_id)
-        except Exception as e:
-            logger.error(f"Failed to send to {user_id}: {e}")
-            failed += 1
-            
-        await asyncio.sleep(0.1)  # Small delay to prevent flooding
-
-        # Update progress every 50 sends
-        if (success + failed) % 50 == 0:
+        if user_id not in disabled_users and user_id not in banned_users:
             try:
-                await processing_msg.edit_text(
-                    f"📢 Broadcasting in progress...\n\n"
-                    f"✅ Success: {success}\n"
-                    f"❌ Failed: {failed}\n"
-                    f"🚫 Blocked: {blocked}"
-                )
-            except:
-                pass
+                await broadcast_msg.copy(user_id)  # Send the message only once
+                success += 1
+            except Exception as e:
+                print(f"Failed to send message to {user_id}: {e}")
+                failed += 1
+        await asyncio.sleep(0.1)  # To avoid flooding
 
-    await processing_msg.edit_text(
+    # Send broadcast stats to the admin
+    await m.reply(
         f"📢 **Broadcast Completed!**\n\n"
         f"✅ Success: `{success}`\n"
-        f"❌ Failed: `{failed}`\n"
-        f"🚫 Blocked: `{blocked}`"
+        f"❌ Failed: `{failed}`"
     )
 
-if __name__ == "__main__":
-    print("Bot is starting...")
-    app.run()
+print("Bot is running!")
+app.run()
