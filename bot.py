@@ -104,8 +104,13 @@ async def approve(_, m: Message):
         invite_link = await app.export_chat_invite_link(chat.id)  # Fetch private invite link
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"
 
+        # Fetch user details
+        user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
+        username = user.username or f"User-{user.id}"  # Use username or fallback to User-<ID>
+        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"
+
         # Add group/channel with user details
-        add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=user.username, user_url=f"https://t.me/{user.username}")
+        add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=username, user_url=user_url)
 
         await app.approve_chat_join_request(chat.id, user.id)
 
@@ -144,9 +149,25 @@ async def user_channels(_, m: Message):
 
     text = "**📋 Users & Their Channels/Groups:**\n"
     for user_id, details in channels.items():
-        text += f"\n👤 **User Name:** [{details['username']}]({details['user_url']})\n"
+        user_name = details.get("username", f"User-{user_id}")  # Fetch user name
+        user_url = details.get("user_url", f"https://t.me/{user_name}")  # Fetch user URL
+
+        # Fetch user's actual name and username from Telegram
+        try:
+            user = await app.get_users(user_id)
+            user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
+            username = user.username or f"User-{user_id}"  # Use username or fallback to User-<ID>
+            user_tag = f"@{username}" if username else user_name  # Use @username if available, else use name
+            user_mention = user.mention  # Use user mention (e.g., @username or name)
+        except Exception:
+            user_name = "Unknown"
+            user_tag = f"User-{user_id}"
+            user_mention = f"User-{user_id}"
+
+        text += f"\n👤 **User Name:** {user_name}\n"
         text += f"      **User ID:** `{user_id}`\n"
-        text += f"      **Username Tag:** {details['username_tag']}\n"
+        text += f"      **Username Tag:** {user_tag}\n"
+        text += f"      **User Mention:** {user_mention}\n"
 
         if details["channels"]:
             text += "  📢 **Channels:**\n"
@@ -261,6 +282,55 @@ async def broadcast_message(_, m: Message):
         f"✅ Success: `{success}`\n"
         f"❌ Failed: `{failed}`"
     )
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Log Bot Added to Channel/Group ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.new_chat_members)
+async def log_bot_added(_, m: Message):
+    # Check if the bot is added to a channel or group
+    if app.id in [user.id for user in m.new_chat_members]:
+        chat = m.chat
+        user = m.from_user
+
+        # Fetch user details
+        user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available
+        username = user.username or f"User-{user.id}"  # Use username or fallback to User-<ID>
+        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"
+        user_mention = user.mention  # Use user mention (e.g., @username or name)
+
+        # Fetch chat invite link if the bot has permission
+        try:
+            invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"
+        except Exception:
+            invite_link = "No invite link available"
+
+        # Customize log message based on chat type
+        if chat.type == enums.ChatType.CHANNEL:
+            log_message = (
+                f"**Bot Added to Channel!**\n\n"
+                f"👤 **User Name:** {user_name}\n"
+                f"🆔 **User ID:** `{user.id}`\n"
+                f"📛 **Username Tag:** @{username}\n"
+                f"👥 **User Mention:** {user_mention}\n"
+                f"📢 **Channel Name:** {chat.title}\n"
+                f"🔗 **Channel Link:** {invite_link}"
+            )
+        elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:
+            log_message = (
+                f"**Bot Added to Group!**\n\n"
+                f"👤 **User Name:** {user_name}\n"
+                f"🆔 **User ID:** `{user.id}`\n"
+                f"📛 **Username Tag:** @{username}\n"
+                f"👥 **User Mention:** {user_mention}\n"
+                f"📢 **Group Name:** {chat.title}\n"
+                f"🔗 **Group Link:** {invite_link}"
+            )
+
+        # Send log message to the log channel
+        await app.send_message(
+            LOG_CHANNEL,
+            log_message
+        )
 
 print("Bot is running!")
 app.run()
