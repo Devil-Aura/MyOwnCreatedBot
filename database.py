@@ -6,7 +6,7 @@ from os import getenv
 MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # Connect to MongoDB
-client = MongoClient(MONGO_URI)
+client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)  # Disable SSL verification
 db = client["Cluster0"]  # Database name (change if needed)
 
 # Collections
@@ -89,7 +89,7 @@ def all_users():
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
-def add_group(chat_id, user_id, chat_title, chat_url, chat_type):
+def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None, user_url=None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO groups (chat_id) VALUES (?)", (chat_id,))
@@ -99,6 +99,8 @@ def add_group(chat_id, user_id, chat_title, chat_url, chat_type):
     # Add to MongoDB
     channels_collection.insert_one({
         "user_id": user_id,
+        "username": username or f"User-{user_id}",  # Add username
+        "user_url": user_url or f"https://t.me/{username}",  # Add user URL
         "chat_id": chat_id,
         "chat_title": chat_title,
         "chat_url": chat_url,
@@ -209,22 +211,19 @@ def get_user_channels():
         chat_title = channel["chat_title"]
         chat_url = channel["chat_url"]
         chat_type = channel.get("type", "unknown")  # Use .get() to avoid KeyError
-
-        # Fetch user details from MongoDB or Telegram
-        user_data = users_collection.find_one({"user_id": user_id})
-        if user_data:
-            username = user_data.get("username", f"User-{user_id}")
-        else:
-            # If the user hasn't started the bot, fetch their username from Telegram
-            try:
-                user = app.get_users(user_id)
-                username = user.username or f"User-{user_id}"
-            except Exception:
-                username = f"User-{user_id}"
+        username = channel.get("username", f"User-{user_id}")  # Fetch username
+        user_url = channel.get("user_url", f"https://t.me/{username}")  # Fetch user URL
 
         # Initialize the user's entry if it doesn't exist
         if user_id not in channels:
-            channels[user_id] = {"username": username, "channels": [], "groups": []}
+            channels[user_id] = {
+                "username": username,
+                "user_url": user_url,
+                "user_id": user_id,
+                "username_tag": f"@{username}" if username else f"User-{user_id}",
+                "channels": [],
+                "groups": []
+            }
 
         # Add the channel/group to the user's entry
         if chat_type == "channel":
@@ -237,9 +236,6 @@ def get_user_channels():
                 "chat_title": chat_title,
                 "chat_url": chat_url
             })
-        else:
-            # Handle unknown types (optional)
-            pass
 
     return channels
 
