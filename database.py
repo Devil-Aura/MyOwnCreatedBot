@@ -1,184 +1,185 @@
 import sqlite3
 from pymongo import MongoClient
 from os import getenv
-from datetime import datetime
 
-# Database Configuration
-MONGO_URI = getenv("MONGO_URI", "mongodb+srv://yoyoyoyo2:yoyoyoyo2@cluster0.aq4zsrb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-DB_NAME = "bot_database.db"
+# Load MongoDB URI from environment variables
+MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
-# Connect to databases
-client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)
-mongo_db = client["Cluster0"]
+# Connect to MongoDB
+client = MongoClient(MONGO_URI)
+db = client["Cluster0"]  # Database name (change if needed)
 
 # Collections
-users_collection = mongo_db["users"]
-groups_collection = mongo_db["groups"]  # Changed from channels_collection for consistency
-disabled_broadcast_collection = mongo_db["disabled_broadcast"]
-banned_users_collection = mongo_db["banned_users"]
-welcome_messages_collection = mongo_db["welcome_messages"]
+users_collection = db["users"]  # Collection for storing user data
+channels_collection = db["channels"]  # Collection for storing channel/group data
 
-# Initialize SQLite
+# Define DB Name for SQLite
+DB_NAME = "bot_database.db"  # Make sure DB_NAME is defined
+
+# Create Tables
 def create_tables():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    tables = [
-        """CREATE TABLE IF NOT EXISTS users (
+    # Users Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY
-        )""",
-        """CREATE TABLE IF NOT EXISTS groups (
+        )
+    """)
+
+    # Groups/Channels Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS groups (
             chat_id INTEGER PRIMARY KEY
-        )""",
-        """CREATE TABLE IF NOT EXISTS disabled_broadcast (
+        )
+    """)
+
+    # Disabled Broadcast Users
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS disabled_broadcast (
             user_id INTEGER PRIMARY KEY
-        )""",
-        """CREATE TABLE IF NOT EXISTS banned_users (
+        )
+    """)
+
+    # Banned Users Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS banned_users (
             user_id INTEGER PRIMARY KEY
-        )""",
-        """CREATE TABLE IF NOT EXISTS welcome_messages (
+        )
+    """)
+
+    # Welcome Messages Table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS welcome_messages (
             chat_id INTEGER PRIMARY KEY,
             message TEXT
-        )"""
-    ]
+        )
+    """)
 
-    for table in tables:
-        cursor.execute(table)
     conn.commit()
     conn.close()
 
 #━━━━━━━━━━━━━━━━━━━━━━━ User Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def add_user(user_id):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    users_collection.update_one(
-        {"user_id": user_id},
-        {"$setOnInsert": {"user_id": user_id, "created_at": datetime.now()}},
-        upsert=True
-    )
+    # Add to MongoDB
+    users_collection.insert_one({"user_id": user_id})
 
 def remove_user(user_id):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    users_collection.delete_one({"user_id": user_id})
-
 def all_users():
-    # Using MongoDB count for better performance
-    return users_collection.count_documents({})
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM users")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
-def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None):
-    # SQLite
+def add_group(chat_id, user_id, chat_title, chat_url, chat_type):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO groups (chat_id) VALUES (?)", (chat_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    groups_collection.update_one(
-        {"chat_id": chat_id},
-        {"$set": {
-            "user_id": user_id,
-            "username": username or f"User-{user_id}",
-            "chat_title": chat_title,
-            "chat_url": chat_url,
-            "type": chat_type,
-            "last_updated": datetime.now()
-        }},
-        upsert=True
-    )
+    # Add to MongoDB
+    channels_collection.insert_one({
+        "user_id": user_id,
+        "chat_id": chat_id,
+        "chat_title": chat_title,
+        "chat_url": chat_url,
+        "type": chat_type  # Ensure this field is always added
+    })
 
 def all_groups():
-    return groups_collection.count_documents({})
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM groups")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Control ━━━━━━━━━━━━━━━━━━━━━━━
 
 def disable_broadcast(user_id):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO disabled_broadcast (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    disabled_broadcast_collection.update_one(
-        {"user_id": user_id},
-        {"$setOnInsert": {"user_id": user_id}},
-        upsert=True
-    )
-
 def enable_broadcast(user_id):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM disabled_broadcast WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    disabled_broadcast_collection.delete_one({"user_id": user_id})
-
 def is_broadcast_disabled(user_id):
-    # Using MongoDB for faster lookup
-    return disabled_broadcast_collection.find_one({"user_id": user_id}) is not None
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM disabled_broadcast WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result is not None
 
 def get_disabled_broadcast_users():
-    return [user["user_id"] for user in disabled_broadcast_collection.find({}, {"user_id": 1})]
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM disabled_broadcast")
+    users = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return users
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Ban Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def ban_user(user_id):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("INSERT OR IGNORE INTO banned_users (user_id) VALUES (?)", (user_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    banned_users_collection.update_one(
-        {"user_id": user_id},
-        {"$setOnInsert": {"user_id": user_id, "banned_at": datetime.now()}},
-        upsert=True
-    )
-
 def unban_user(user_id):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
-    # MongoDB
-    banned_users_collection.delete_one({"user_id": user_id})
-
 def is_user_banned(user_id):
-    return banned_users_collection.find_one({"user_id": user_id}) is not None
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM banned_users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result is not None
 
 def get_banned_users():
-    return [user["user_id"] for user in banned_users_collection.find({}, {"user_id": 1})]
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT user_id FROM banned_users")
+    users = [row[0] for row in cursor.fetchall()]
+    conn.close()
+    return users
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Welcome Message Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def set_welcome_message(chat_id, message):
-    # SQLite
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
@@ -188,17 +189,60 @@ def set_welcome_message(chat_id, message):
     conn.commit()
     conn.close()
 
-    # MongoDB
-    welcome_messages_collection.update_one(
-        {"chat_id": chat_id},
-        {"$set": {"message": message, "updated_at": datetime.now()}},
-        upsert=True
-    )
-
 def get_welcome_message(chat_id):
-    # Using MongoDB for faster access
-    result = welcome_messages_collection.find_one({"chat_id": chat_id})
-    return result["message"] if result else None
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT message FROM welcome_messages WHERE chat_id = ?", (chat_id,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
 
-# Initialize the database
+#━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Tracking ━━━━━━━━━━━━━━━━━━━━━━━
+
+def get_user_channels():
+    # Fetch all channels/groups from MongoDB
+    user_channels = channels_collection.find({})
+    channels = {}
+
+    for channel in user_channels:
+        user_id = channel["user_id"]
+        chat_title = channel["chat_title"]
+        chat_url = channel["chat_url"]
+        chat_type = channel.get("type", "unknown")  # Use .get() to avoid KeyError
+
+        # Fetch user details from MongoDB or Telegram
+        user_data = users_collection.find_one({"user_id": user_id})
+        if user_data:
+            username = user_data.get("username", f"User-{user_id}")
+        else:
+            # If the user hasn't started the bot, fetch their username from Telegram
+            try:
+                user = app.get_users(user_id)
+                username = user.username or f"User-{user_id}"
+            except Exception:
+                username = f"User-{user_id}"
+
+        # Initialize the user's entry if it doesn't exist
+        if user_id not in channels:
+            channels[user_id] = {"username": username, "channels": [], "groups": []}
+
+        # Add the channel/group to the user's entry
+        if chat_type == "channel":
+            channels[user_id]["channels"].append({
+                "chat_title": chat_title,
+                "chat_url": chat_url
+            })
+        elif chat_type == "group":
+            channels[user_id]["groups"].append({
+                "chat_title": chat_title,
+                "chat_url": chat_url
+            })
+        else:
+            # Handle unknown types (optional)
+            pass
+
+    return channels
+
+#━━━━━━━━━━━━━━━━━━━━━━━ Initialize Database ━━━━━━━━━━━━━━━━━━━━━━━
+
 create_tables()
