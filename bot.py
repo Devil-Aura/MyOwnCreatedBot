@@ -6,8 +6,7 @@ from database import (
     add_user, add_group, all_users, all_groups, remove_user,
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
     ban_user, unban_user, is_user_banned, get_banned_users,
-    get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    get_user_channels, users_collection  # Import users_collection
+    get_disabled_broadcast_users, set_welcome_message, get_welcome_message, users_collection  # Import users_collection
 )
 from config import cfg
 import asyncio
