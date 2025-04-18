@@ -8,7 +8,6 @@ class Config:
     # Your Force Subscribe Channel ID (Make Bot Admin In This Channel)
     CHID = int(getenv("CHID", "-1002432405855"))  
 
-    
     # Admin Or Owner IDs (Multiple Admins Can Be Added)
     SUDO = list(map(int, getenv("SUDO", "6040503076").split()))
 
