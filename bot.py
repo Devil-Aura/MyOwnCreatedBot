@@ -18,7 +18,7 @@ app = Client(
     bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = -1001234567890  # Replace with your actual log channel ID
+LOG_CHANNEL = -1002446826368  # Replace with your actual log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -94,21 +94,21 @@ async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
     await query.message.reply("Click /start To Check You Are Joined")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request(filters.group | filters.channel))
+@app.on_chat_join_request(filters.group | filters.channel)
 async def approve(_, m: Message):
     chat = m.chat
     user = m.from_user
 
     try:  
         # Fetch the private invite link for the group/channel  
-        invite_link = await app.export_chat_invite_link(chat.id)  # Fetch private invite link  
+        invite_link = await app.export_chat_invite_link(chat.id)  
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"  
 
         # Fetch user details  
-        user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available  
-        username = user.username or f"User-{user.id}"  # Use username or fallback to User-<ID>  
+        user_name = user.first_name or "Unknown"  
+        username = user.username or f"User-{user.id}"  
         user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"  
 
         # Add group/channel with user details  
@@ -127,7 +127,7 @@ async def approve(_, m: Message):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Log Bot Added to Channel/Group ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_member_updated())
+@app.on_chat_member_updated()
 async def chat_member_updated(_, update: ChatMemberUpdated):
     if update.new_chat_member and update.new_chat_member.user.id == app.id:
         print("Bot was added to a chat!")  # Debugging log
@@ -168,7 +168,7 @@ async def chat_member_updated(_, update: ChatMemberUpdated):
                 f"🔗 **Group Link:** {invite_link}"  
             )  
         else:  
-            return  # Ignore unknown chat types  
+            return  
 
         # Send log message to the log channel  
         try:  
@@ -243,16 +243,15 @@ async def user_channels(_, m: Message):
 
     text = "**📋 Users & Their Channels/Groups:**\n"  
     for user_id, details in channels.items():  
-        user_name = details.get("username", f"User-{user_id}")  # Fetch user name  
-        user_url = details.get("user_url", f"https://t.me/{user_name}")  # Fetch user URL  
+        user_name = details.get("username", f"User-{user_id}")  
+        user_url = details.get("user_url", f"https://t.me/{user_name}")  
 
-        # Fetch user's actual name and username from Telegram  
         try:  
             user = await app.get_users(user_id)  
-            user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available  
-            username = user.username or f"User-{user_id}"  # Use username or fallback to User-<ID>  
-            user_tag = f"@{username}" if username else user_name  # Use @username if available, else use name  
-            user_mention = user.mention  # Use user mention (e.g., @username or name)  
+            user_name = user.first_name or "Unknown"  
+            username = user.username or f"User-{user_id}"  
+            user_tag = f"@{username}" if username else user_name  
+            user_mention = user.mention  
         except Exception:  
             user_name = "Unknown"  
             user_tag = f"User-{user_id}"  
@@ -352,9 +351,9 @@ async def broadcast_message(_, m: Message):
     broadcast_msg = m.reply_to_message  
 
     # Get all users except banned and disabled broadcast users  
-    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  # Fetch all unique user IDs from MongoDB  
-    disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users  
-    banned_users = get_banned_users()  # Fetch banned users  
+    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  
+    disabled_users = get_disabled_broadcast_users()  
+    banned_users = get_banned_users()  
 
     success = 0  
     failed = 0  
@@ -363,12 +362,12 @@ async def broadcast_message(_, m: Message):
     for user_id in all_users_list:  
         if user_id not in disabled_users and user_id not in banned_users:  
             try:  
-                await broadcast_msg.copy(user_id)  # Send the message only once  
+                await broadcast_msg.copy(user_id)  
                 success += 1  
             except Exception as e:  
                 print(f"Failed to send message to {user_id}: {e}")  
                 failed += 1  
-        await asyncio.sleep(0.1)  # To avoid flooding  
+        await asyncio.sleep(0.1)  
 
     # Send broadcast stats to the admin  
     await m.reply(  
