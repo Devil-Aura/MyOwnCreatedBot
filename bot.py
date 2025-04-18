@@ -19,7 +19,7 @@ app = Client(
     bot_token=cfg.BOT_TOKEN
 )
 
-LOG_CHANNEL = -1002446826368  # Replace with your actual log channel ID
+LOG_CHANNEL = -1001234567890  # Replace with your actual log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -143,43 +143,30 @@ async def chat_member_updated(_, update: ChatMemberUpdated):
 
         # Fetch chat invite link if the bot has permission  
         try:  
-            if chat.type == enums.ChatType.CHANNEL or chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:
-                # Try to get invite link if bot has permission
-                try:
-                    invite_link = await app.export_chat_invite_link(chat.id)
-                except:
-                    # If bot doesn't have permission, try to get username link
-                    if chat.username:
-                        invite_link = f"https://t.me/{chat.username}"
-                    else:
-                        invite_link = "No invite link available (missing permission)"
-            else:
-                invite_link = "Not applicable"
-        except Exception as e:  
-            invite_link = f"Error getting link: {str(e)}"  
+            invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"  
+        except Exception:  
+            invite_link = "No invite link available"  
 
         # Customize log message based on chat type  
         if chat.type == enums.ChatType.CHANNEL:  
             log_message = (  
-                f"**🤖 Bot Added to Channel!**\n\n"  
-                f"👤 **Added by:** {user_mention}\n"  
+                f"**Bot Added to Channel!**\n\n"  
+                f"👤 **User Name:** {user_name}\n"  
                 f"🆔 **User ID:** `{user.id}`\n"  
-                f"📛 **Username:** @{username}\n\n"  
+                f"📛 **Username Tag:** @{username}\n"  
+                f"👥 **User Mention:** {user_mention}\n"  
                 f"📢 **Channel Name:** {chat.title}\n"  
-                f"🆔 **Channel ID:** `{chat.id}`\n"  
-                f"🔗 **Channel Link:** {invite_link}\n\n"  
-                f"#NewChannel #BotAdded"  
+                f"🔗 **Channel Link:** {invite_link}"  
             )  
         elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:  
             log_message = (  
-                f"**🤖 Bot Added to Group!**\n\n"  
-                f"👤 **Added by:** {user_mention}\n"  
+                f"**Bot Added to Group!**\n\n"  
+                f"👤 **User Name:** {user_name}\n"  
                 f"🆔 **User ID:** `{user.id}`\n"  
-                f"📛 **Username:** @{username}\n\n"  
-                f"👥 **Group Name:** {chat.title}\n"  
-                f"🆔 **Group ID:** `{chat.id}`\n"  
-                f"🔗 **Group Link:** {invite_link}\n\n"  
-                f"#NewGroup #BotAdded"  
+                f"📛 **Username Tag:** @{username}\n"  
+                f"👥 **User Mention:** {user_mention}\n"  
+                f"📢 **Group Name:** {chat.title}\n"  
+                f"🔗 **Group Link:** {invite_link}"  
             )  
         else:  
             return  # Ignore unknown chat types  
@@ -206,6 +193,67 @@ async def stats(_, m: Message):
         f"🚫 Banned Users: `{banned_users}`\n"  
         f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`"  
     )
+
+@app.on_message(filters.command("fetchaddersusers") & filters.user(cfg.SUDO))
+async def fetch_adders_users(_, m: Message):
+    """
+    Fetch users who added the bot to their channels/groups
+    This command is only for admin/owner (sudo) of the bot
+    """
+    try:
+        # Get all chats where the bot is a member
+        async for dialog in app.get_dialogs():
+            if dialog.chat.type in (enums.ChatType.CHANNEL, enums.ChatType.GROUP, enums.ChatType.SUPERGROUP):
+                try:
+                    # Get chat administrators to find who added the bot
+                    admins = await app.get_chat_members(dialog.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
+                    
+                    # Find the admin who likely added the bot (usually the first admin or creator)
+                    adder = None
+                    for admin in admins:
+                        if admin.status == enums.ChatMemberStatus.OWNER:
+                            adder = admin.user
+                            break
+                    if not adder and len(admins) > 0:
+                        adder = admins[0].user
+                    
+                    if adder:
+                        # Prepare message details
+                        adder_name = adder.first_name or "Unknown"
+                        adder_username = adder.username or f"User-{adder.id}"
+                        adder_mention = adder.mention if adder.username else f"[{adder_name}](tg://user?id={adder.id})"
+                        chat_link = f"https://t.me/{dialog.chat.username}" if dialog.chat.username else f"chat_id_{dialog.chat.id}"
+                        
+                        # Prepare the message
+                        message = (
+                            f"**📢 Bot Added to {dialog.chat.type}**\n\n"
+                            f"👤 **Adder User:** {adder_mention}\n"
+                            f"🆔 **Adder ID:** `{adder.id}`\n"
+                            f"📛 **Adder Username:** @{adder_username}\n\n"
+                            f"📢 **Chat Name:** {dialog.chat.title}\n"
+                            f"🆔 **Chat ID:** `{dialog.chat.id}`\n"
+                            f"🔗 **Chat Link:** {chat_link}\n"
+                            f"📌 **Chat Type:** {dialog.chat.type}"
+                        )
+                        
+                        # Send to owner/admin
+                        await m.reply(message, disable_web_page_preview=True)
+                        
+                        # Send to log channel
+                        try:
+                            await app.send_message(LOG_CHANNEL, message, disable_web_page_preview=True)
+                        except Exception as e:
+                            print(f"Failed to send to log channel: {e}")
+                
+                except Exception as e:
+                    print(f"Error processing chat {dialog.chat.id}: {e}")
+                    continue
+        
+        await m.reply("✅ All adder users information has been fetched and sent!")
+    
+    except Exception as e:
+        await m.reply(f"❌ Error fetching adder users: {str(e)}")
+        print(f"Error in fetch_adders_users: {str(e)}")
 
 @app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
 async def set_welcome(_, m: Message):
