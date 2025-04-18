@@ -96,7 +96,7 @@ async def check_again_callback(_, query: CallbackQuery):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request(filters.group | filters.channel))
+@app.on_chat_join_request(filters.group | filters.channel)
 async def approve(_, m: Message):
     chat = m.chat
     user = m.from_user
@@ -259,7 +259,7 @@ async def show_banned_users(_, m: Message):
     text = "🚫 Banned Users:\n" + "\n".join(f"👤 {user}" for user in users)
     await m.reply(text)
 
-@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply))
+@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
 async def broadcast_message(_, m: Message):
     # Check if the command is used as a reply
     if not m.reply_to_message:
