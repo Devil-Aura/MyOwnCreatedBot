@@ -4,7 +4,7 @@ from os import getenv
 from datetime import datetime
 
 # Database Configuration
-MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+MONGO_URI = getenv("MONGO_URI", "mongodb+srv://yoyoyoyo2:yoyoyoyo2@cluster0.aq4zsrb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 DB_NAME = "bot_database.db"
 
 # Connect to databases
