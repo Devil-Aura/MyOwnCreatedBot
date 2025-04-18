@@ -1,7 +1,6 @@
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ChatMemberUpdated
 from pyrogram import filters, Client, errors, enums
-from pyrogram.errors import UserNotParticipant
-from pyrogram.errors.exceptions.flood_420 import FloodWait
+from pyrogram.errors import UserNotParticipant, PeerIdInvalid, ChannelPrivate
 from database import (
     add_user, add_group, all_users, all_groups, remove_user,
     disable_broadcast, enable_broadcast, is_broadcast_disabled,
@@ -97,7 +96,7 @@ async def check_again_callback(_, query: CallbackQuery):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_join_request(filters.group | filters.channel)
+@app.on_chat_join_request(filters.group | filters.channel))
 async def approve(_, m: Message):
     chat = m.chat
     user = m.from_user
@@ -108,8 +107,8 @@ async def approve(_, m: Message):
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"  
 
         # Fetch user details  
-        user_name = user.first_name or "Unknown"  # Use first name or "Unknown" if not available  
-        username = user.username or f"User-{user.id}"  # Use username or fallback to User-<ID>  
+        user_name = user.first_name or "Unknown"  
+        username = user.username or f"User-{user.id}"  
         user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"  
 
         # Add group/channel with user details  
@@ -156,6 +155,7 @@ async def chat_member_updated(_, update: ChatMemberUpdated):
                 f"📛 **Username Tag:** @{username}\n"  
                 f"👥 **User Mention:** {user_mention}\n"  
                 f"📢 **Channel Name:** {chat.title}\n"  
+                f"🆔 **Channel ID:** `{chat.id}`\n"  
                 f"🔗 **Channel Link:** {invite_link}"  
             )  
         elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:  
@@ -166,6 +166,7 @@ async def chat_member_updated(_, update: ChatMemberUpdated):
                 f"📛 **Username Tag:** @{username}\n"  
                 f"👥 **User Mention:** {user_mention}\n"  
                 f"📢 **Group Name:** {chat.title}\n"  
+                f"🆔 **Group ID:** `{chat.id}`\n"  
                 f"🔗 **Group Link:** {invite_link}"  
             )  
         else:  
@@ -193,67 +194,6 @@ async def stats(_, m: Message):
         f"🚫 Banned Users: `{banned_users}`\n"  
         f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`"  
     )
-
-@app.on_message(filters.command("fetchaddersusers") & filters.user(cfg.SUDO))
-async def fetch_adders_users(_, m: Message):
-    """
-    Fetch users who added the bot to their channels/groups
-    This command is only for admin/owner (sudo) of the bot
-    """
-    try:
-        # Get all chats where the bot is a member
-        async for dialog in app.get_dialogs():
-            if dialog.chat.type in (enums.ChatType.CHANNEL, enums.ChatType.GROUP, enums.ChatType.SUPERGROUP):
-                try:
-                    # Get chat administrators to find who added the bot
-                    admins = await app.get_chat_members(dialog.chat.id, filter=enums.ChatMembersFilter.ADMINISTRATORS)
-                    
-                    # Find the admin who likely added the bot (usually the first admin or creator)
-                    adder = None
-                    for admin in admins:
-                        if admin.status == enums.ChatMemberStatus.OWNER:
-                            adder = admin.user
-                            break
-                    if not adder and len(admins) > 0:
-                        adder = admins[0].user
-                    
-                    if adder:
-                        # Prepare message details
-                        adder_name = adder.first_name or "Unknown"
-                        adder_username = adder.username or f"User-{adder.id}"
-                        adder_mention = adder.mention if adder.username else f"[{adder_name}](tg://user?id={adder.id})"
-                        chat_link = f"https://t.me/{dialog.chat.username}" if dialog.chat.username else f"chat_id_{dialog.chat.id}"
-                        
-                        # Prepare the message
-                        message = (
-                            f"**📢 Bot Added to {dialog.chat.type}**\n\n"
-                            f"👤 **Adder User:** {adder_mention}\n"
-                            f"🆔 **Adder ID:** `{adder.id}`\n"
-                            f"📛 **Adder Username:** @{adder_username}\n\n"
-                            f"📢 **Chat Name:** {dialog.chat.title}\n"
-                            f"🆔 **Chat ID:** `{dialog.chat.id}`\n"
-                            f"🔗 **Chat Link:** {chat_link}\n"
-                            f"📌 **Chat Type:** {dialog.chat.type}"
-                        )
-                        
-                        # Send to owner/admin
-                        await m.reply(message, disable_web_page_preview=True)
-                        
-                        # Send to log channel
-                        try:
-                            await app.send_message(LOG_CHANNEL, message, disable_web_page_preview=True)
-                        except Exception as e:
-                            print(f"Failed to send to log channel: {e}")
-                
-                except Exception as e:
-                    print(f"Error processing chat {dialog.chat.id}: {e}")
-                    continue
-        
-        await m.reply("✅ All adder users information has been fetched and sent!")
-    
-    except Exception as e:
-        await m.reply(f"❌ Error fetching adder users: {str(e)}")
-        print(f"Error in fetch_adders_users: {str(e)}")
 
 @app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
 async def set_welcome(_, m: Message):
@@ -319,7 +259,7 @@ async def show_banned_users(_, m: Message):
     text = "🚫 Banned Users:\n" + "\n".join(f"👤 {user}" for user in users)
     await m.reply(text)
 
-@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
+@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply))
 async def broadcast_message(_, m: Message):
     # Check if the command is used as a reply
     if not m.reply_to_message:
