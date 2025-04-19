@@ -115,8 +115,28 @@ async def start(_, m: Message):
 
 @app.on_callback_query(filters.regex("^check_again$"))
 async def check_again_callback(_, query: CallbackQuery):
-    await query.message.delete()
-    await query.message.reply("Click /start To Check You Are Joined")
+    try:
+        # Delete the original message
+        await query.message.delete()
+        
+        # Create new message with button (using hardcoded bot username)
+        key = InlineKeyboardMarkup(  
+            [[  
+                InlineKeyboardButton("🍀 Check Again 🍀", 
+                 url="https://t.me/Auto_Request_Accept_Fast_bot?start=check")  
+            ]]  
+        )
+        
+        # Send new message with button
+        await query.message.reply(
+            "Click /start To Check You Are Joined",
+            reply_markup=key
+        )
+        
+    except Exception as e:
+        print(f"Error in check_again_callback: {e}")
+        # Fallback in case of any error
+        await query.message.reply("Click /start To Check You Are Joined")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
