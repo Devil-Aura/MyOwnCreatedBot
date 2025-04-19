@@ -98,11 +98,11 @@ async def start(_, m: Message):
             InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),  
         ],  
     ])  
-    await m.reply_photo(  
-        "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",  
-        caption=(WELCOME_TEXT.format(user_mention=m.from_user.mention), parse_mode="HTML"
-        ),  
-        reply_markup=keyboard,  
+    await m.reply_photo(
+    "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
+    caption=WELCOME_TEXT.format(user_mention=m.from_user.mention),
+    parse_mode="HTML",
+    reply_markup=keyboard
     )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
