@@ -104,7 +104,7 @@ async def start(_, m: Message):
             f"**🤗 Hello {m.from_user.mention}!\n\n"  
             f"🚀 I am the FASTEST BOT, faster than light ⚡!"  
             f"I approve join requests in just 0.5 seconds.\n"  
-            f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"  
+            f"<blockquote>I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"  
             f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"  
             f"Powered By : @World_Fastest_Bots**"  
         ),  
