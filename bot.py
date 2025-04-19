@@ -101,12 +101,12 @@ async def start(_, m: Message):
     await m.reply_photo(
 "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
 caption=(
-f"🤗 Hello {m.from_user.mention}!\n\n"
-f"🚀 I am the FASTEST BOT, faster than light ⚡!"
-f"I approve join requests in just 0.5 seconds.\n"
-f"<blockquote>I'm an auto-approve Admin Join Requests Bot.\n"
-f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
-f"Powered By : @World_Fastest_Bots"
+f"<b>🤗 Hello {m.from_user.mention}!</b>\n\n"
+f"<b>🚀 I am the FASTEST BOT, faster than light ⚡!"
+f"I approve join requests in just 0.5 seconds.\</b>n"
+f"<blockquote><b>I'm an auto-approve Admin Join Requests Bot.</b>\n"
+f"<b>I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote></b>\n\n"
+f"<b>Powered By : @World_Fastest_Bots</b>"
 ),
 reply_markup=keyboard,
     )
