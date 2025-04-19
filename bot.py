@@ -1,15 +1,19 @@
-from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, ChatMemberUpdated
+from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from pyrogram import filters, Client, errors, enums
 from pyrogram.errors import UserNotParticipant, PeerIdInvalid, ChannelPrivate
 from database import (
-    add_user, add_group, all_users, all_groups, remove_user,
-    disable_broadcast, enable_broadcast, is_broadcast_disabled,
+    add_user, add_group, all_users, all_groups,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    users_collection
+    users_collection, groups_collection
 )
 from config import cfg
 import asyncio
+import time
+import psutil
+from datetime import datetime
+import sys
+import os
 
 app = Client(
     "approver",
@@ -18,8 +22,28 @@ app = Client(
     bot_token=cfg.BOT_TOKEN
 )
 
+# Global variables
+START_TIME = time.time()
 LOG_CHANNEL = -1001234567890  # Replace with your actual log channel ID
 
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Helper Functions ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+def format_uptime(seconds):
+    """Convert seconds to human-readable format"""
+    minutes, seconds = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    return f"{days}d {hours}h {minutes}m {seconds}s"
+
+def get_system_stats():
+    """Get lightweight system metrics"""
+    try:
+        cpu = psutil.cpu_percent(interval=1)
+        mem = psutil.virtual_memory().percent
+        return f"🖥 CPU: {cpu}% | RAM: {mem}%"
+    except:
+        return "⚠️ System stats unavailable"
+        
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.private & filters.command("start"))
@@ -125,59 +149,26 @@ async def approve(_, m: Message):
     except Exception as e:  
         print(str(e))
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Log Bot Added to Channel/Group ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ New Fretures  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_chat_member_updated()
-async def chat_member_updated(_, update: ChatMemberUpdated):
-    if update.new_chat_member and update.new_chat_member.user.id == app.id:
-        print("Bot was added to a chat!")  # Debugging log
-        chat = update.chat
-        user = update.from_user
+@app.on_message(filters.command("restart") & filters.user(cfg.SUDO))
+async def restart_bot(_, m: Message):
+    await m.reply("♻️ Restarting bot...")
+    await app.send_message(
+        LOG_CHANNEL,
+        f"🔄 Bot restarted by {m.from_user.mention}\n"
+        f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    os.execl(sys.executable, sys.executable, *sys.argv)
 
-        # Fetch user details  
-        user_name = user.first_name or "Unknown"  
-        username = user.username or f"User-{user.id}"  
-        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"  
-        user_mention = user.mention  
-
-        # Fetch chat invite link if the bot has permission  
-        try:  
-            invite_link = await app.export_chat_invite_link(chat.id) if chat.username is None else f"https://t.me/{chat.username}"  
-        except Exception:  
-            invite_link = "No invite link available"  
-
-        # Customize log message based on chat type  
-        if chat.type == enums.ChatType.CHANNEL:  
-            log_message = (  
-                f"**Bot Added to Channel!**\n\n"  
-                f"👤 **User Name:** {user_name}\n"  
-                f"🆔 **User ID:** `{user.id}`\n"  
-                f"📛 **Username Tag:** @{username}\n"  
-                f"👥 **User Mention:** {user_mention}\n"  
-                f"📢 **Channel Name:** {chat.title}\n"  
-                f"🆔 **Channel ID:** `{chat.id}`\n"  
-                f"🔗 **Channel Link:** {invite_link}"  
-            )  
-        elif chat.type == enums.ChatType.GROUP or chat.type == enums.ChatType.SUPERGROUP:  
-            log_message = (  
-                f"**Bot Added to Group!**\n\n"  
-                f"👤 **User Name:** {user_name}\n"  
-                f"🆔 **User ID:** `{user.id}`\n"  
-                f"📛 **Username Tag:** @{username}\n"  
-                f"👥 **User Mention:** {user_mention}\n"  
-                f"📢 **Group Name:** {chat.title}\n"  
-                f"🆔 **Group ID:** `{chat.id}`\n"  
-                f"🔗 **Group Link:** {invite_link}"  
-            )  
-        else:  
-            return  # Ignore unknown chat types  
-
-        # Send log message to the log channel  
-        try:  
-            await app.send_message(LOG_CHANNEL, log_message)  
-        except Exception as e:  
-            print(f"Failed to send log message: {e}")
-
+@app.on_message(filters.command("status") & filters.user(cfg.SUDO))
+async def show_status(_, m: Message):
+    await m.reply_text(
+        f"⚙️ **System Status**\n\n"
+        f"{get_system_stats()}\n"
+        f"⏱ Uptime: `{format_uptime(time.time() - START_TIME)}`\n"
+        f"🕒 Started: `{datetime.fromtimestamp(START_TIME).strftime('%Y-%m-%d %H:%M')}`"
+    )
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
