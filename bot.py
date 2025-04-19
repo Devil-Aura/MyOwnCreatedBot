@@ -5,7 +5,7 @@ from database import (
     add_user, add_group, all_users, all_groups,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    users_collection, groups_collection
+    users_collection, channels_collection as groups_collection
 )
 from config import cfg
 import asyncio
@@ -24,7 +24,7 @@ app = Client(
 
 # Global variables
 START_TIME = time.time()
-LOG_CHANNEL = -1001234567890  # Replace with your actual log channel ID
+LOG_CHANNEL = -1002446826368 # Replace with your actual log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Helper Functions ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
