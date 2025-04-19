@@ -66,7 +66,7 @@ async def start(_, m: Message):
         key = InlineKeyboardMarkup(  
             [[  
                 InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),  
-                InlineKeyboardButton("🍀 Check Again 🍀", url=f"https://t.me/{(await app.get_me()).username}?start={m.command[1] if len(m.command) > 1 else 'check'}")  
+                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")  
             ]]  
         )  
         await m.reply_text(  
