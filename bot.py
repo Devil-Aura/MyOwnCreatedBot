@@ -99,17 +99,19 @@ async def start(_, m: Message):
             InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),  
         ],  
     ])  
-    await m.reply_photo("https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-    caption=(
-        f"**🤗 ʜᴇʟʟᴏ {m.from_user.mention}!\n\n"
-        f"🚀 ɪ ᴀᴍ ᴛʜᴇ ꜰᴀꜱᴛᴇꜱᴛ ʙᴏᴛ, ꜰᴀꜱᴛᴇʀ ᴛʜᴀɴ ʟɪɢʜᴛ ⚡!\n"
-        f"ɪ ᴀᴘᴘʀᴏᴠᴇ ᴊᴏɪɴ ʀᴇQᴜᴇꜱᴛꜱ ɪɴ ᴊᴜꜱᴛ 0.5 ꜱᴇᴄᴏɴᴅꜱ.\n"
-        f"<blockquote> ɪ'ᴍ ᴀɴ ᴀᴜᴛᴏ-ᴀᴘᴘʀᴏᴠᴇ [ᴀᴅᴍɪɴ ᴊᴏɪɴ ʀᴇQᴜᴇꜱᴛꜱ](https://t.me/telegram/153) ʙᴏᴛ.\n"
-        f"ɪ ᴄᴀɴ ᴀᴘᴘʀᴏᴠᴇ ᴜꜱᴇʀꜱ ɪɴ ɢʀᴏᴜᴘꜱ/ᴄʜᴀɴɴᴇʟꜱ. ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ᴄʜᴀᴛ ᴀɴᴅ ᴘʀᴏᴍᴏᴛᴇ ᴍᴇ ᴛᴏ ᴀᴅᴍɪɴ ᴡɪᴛʜ 'ᴀᴅᴅ ᴍᴇᴍʙᴇʀꜱ' ᴘᴇʀᴍɪꜱꜱɪᴏɴ.</blockquote>\n\n"
-        f"ᴘᴏᴡᴇʀᴇᴅ ʙʏ : @World_Fastest_Bots**"
-    ),
+    await m.reply_photo(
+    "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
+    caption=f"""**🤗 ʜᴇʟʟᴏ {m.from_user.mention}!
+
+🚀 ɪ ᴀᴍ ᴛʜᴇ ꜰᴀꜱᴛᴇꜱᴛ ʙᴏᴛ, ꜰᴀꜱᴛᴇʀ ᴛʜᴀɴ ʟɪɢʜᴛ ⚡!
+ɪ ᴀᴘᴘʀᴏᴠᴇ ᴊᴏɪɴ ʀᴇǫᴜᴇꜱᴛꜱ ɪɴ ᴊᴜꜱᴛ 0.5 ꜱᴇᴄᴏɴᴅꜱ.
+
+<blockquote>ɪ'ᴍ ᴀɴ ᴀᴜᴛᴏ-ᴀᴘᴘʀᴏᴠᴇ [ᴀᴅᴍɪɴ ᴊᴏɪɴ ʀᴇǫᴜᴇꜱᴛꜱ](https://t.me/telegram/153) ʙᴏᴛ.
+ɪ ᴄᴀɴ ᴀᴘᴘʀᴏᴠᴇ ᴜꜱᴇʀꜱ ɪɴ ɢʀᴏᴜᴘꜱ/ᴄʜᴀɴɴᴇʟꜱ. ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ᴄʜᴀᴛ ᴀɴᴅ ᴘʀᴏᴍᴏᴛᴇ ᴍᴇ ᴛᴏ ᴀᴅᴍɪɴ ᴡɪᴛʜ 'ᴀᴅᴅ ᴍᴇᴍʙᴇʀꜱ' ᴘᴇʀᴍɪꜱꜱɪᴏɴ.</blockquote>
+
+ᴘᴏᴡᴇʀᴇᴅ ʙʏ : @World_Fastest_Bots**""",
     reply_markup=keyboard,
-                       )
+    )
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_callback_query(filters.regex("^check_again$"))
