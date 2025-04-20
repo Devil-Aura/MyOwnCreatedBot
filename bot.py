@@ -117,9 +117,12 @@ async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
     await query.message.reply("<b>ᴄʟɪᴄᴋ /start ᴛᴏ ᴄʜᴇᴄᴋ ʏᴏᴜ ᴀʀᴇ ᴊᴏɪɴᴇᴅ</b>")
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ pic ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-START_MSG = """<b>🤗 Hello {first}!</b>\n
+START_MSG = """<b>🤗 Hello {first}!</b>
+
 <b>🚀 I am the <u>FASTEST BOT</u>, faster than light ⚡! I approve join requests in just 0.5 seconds.</b>
-<blockquote><b>I'm an auto-approve <a href="https://t.me/telegram/153">Admin Join Requests</a> Bot. I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</b></blockquote>\n
+
+<blockquote><b>I'm an auto-approve <a href="https://t.me/telegram/153">Admin Join Requests</a> Bot. I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</b></blockquote>
+
 <b>Powered By : <a href="https://t.me/World_Fastest_Bots">@World_Fastest_Bots</a></b>"""
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
