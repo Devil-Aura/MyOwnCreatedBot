@@ -71,8 +71,8 @@ async def start(_, m: Message):
             ]]  
         )  
         await m.reply_text(  
-            "**⚠️ Access Denied! ⚠️**\n\n"  
-            "<b>Please join my update channel to use me.</b>/n <blockquote><b>If you have already joined, click 'Check Again' to confirm.</b></blockqoute>",  
+            "**⚠️ Access Denied! ⚠️**\n\n  
+            **Please join my update channel to use me.**/n <blockquote>**If you have already joined, click 'Check Again' to confirm.**</blockqoute>",  
             reply_markup=key  
         )  
         return  
@@ -100,16 +100,16 @@ async def start(_, m: Message):
         ],  
     ])  
     await m.reply_photo(
-        "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-        caption=(
-            f"**🤗 Hello {m.from_user.mention}!\n\n"
-            f"🚀 I am the FASTEST BOT, faster than light ⚡!"
-            f"I approve join requests in just 0.5 seconds.\n"
-            f"<blockquote> I'm an auto-approve [Admin Join Requests](https://t.me/telegram/153) Bot.\n"
-            f"I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
-            f"Powered By : @World_Fastest_Bots**"
-        ),
-        reply_markup=keyboard,
+    "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
+    caption=(
+        f"**🤗 ʜᴇʟʟᴏ {m.from_user.mention}!\n\n"
+        f"🚀 ɪ ᴀᴍ ᴛʜᴇ ғᴀsᴛᴇsᴛ ʙᴏᴛ, ғᴀsᴛᴇʀ ᴛʜᴀɴ ʟɪɢʜᴛ ⚡!"
+        f"ɪ ᴀᴘᴘʀᴏᴠᴇ ᴊᴏɪɴ ʀᴇǫᴜᴇsᴛs ɪɴ ᴊᴜsᴛ 0.5 sᴇᴄᴏɴᴅs.\n"
+        f"<blockquote> ɪ'ᴍ ᴀɴ ᴀᴜᴛᴏ-ᴀᴘᴘʀᴏᴠᴇ [ᴀᴅᴍɪɴ ᴊᴏɪɴ ʀᴇǫᴜᴇsᴛs](https://t.me/telegram/153) ʙᴏᴛ.\n"
+        f"ɪ ᴄᴀɴ ᴀᴘᴘʀᴏᴠᴇ ᴜsᴇʀs ɪɴ ɢʀᴏᴜᴘs/ᴄʜᴀɴɴᴇʟs. ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ᴄʜᴀᴛ ᴀɴᴅ ᴘʀᴏᴍᴏᴛᴇ ᴍᴇ ᴛᴏ ᴀᴅᴍɪɴ ᴡɪᴛʜ 'ᴀᴅᴅ ᴍᴇᴍʙᴇʀs' ᴘᴇʀᴍɪssɪᴏɴ.</blockquote>\n\n"
+        f"ᴘᴏᴡᴇʀᴇᴅ ʙʏ : @World_Fastest_Bots**"
+    ),
+    reply_markup=keyboard,
     )
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
