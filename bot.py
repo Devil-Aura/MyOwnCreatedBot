@@ -116,7 +116,7 @@ async def start(_, m: Message):
 @app.on_callback_query(filters.regex("^check_again$"))
 async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
-    await query.message.reply("Click /start To Check You Are Joined")
+    await query.message.reply("<b>ᴄʟɪᴄᴋ /start ᴛᴏ ᴄʜᴇᴄᴋ ʏᴏᴜ ᴀʀᴇ ᴊᴏɪɴᴇᴅ</b>")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -140,7 +140,7 @@ async def approve(_, m: Message):
 
         await app.approve_chat_join_request(chat.id, user.id)  
 
-        welcome_msg = get_welcome_message(chat.id) or "**🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀    /start To Use Me**"  
+        welcome_msg = get_welcome_message(chat.id) or "**<b>🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀</b>/n <blockquote><b>/start To Use Me...!!</b></blockqoute>**"  
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))  
 
         add_user(user.id)  
