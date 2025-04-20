@@ -100,7 +100,7 @@ async def start(_, m: Message):
         ],  
     ])  
     await m.reply_photo(
-        photo=START_PIC,
+        photo=cfg.START_PIC,
         caption=START_MSG.format(
             first=m.from_user.first_name,
             last=m.from_user.last_name,
@@ -108,7 +108,7 @@ async def start(_, m: Message):
             mention=m.from_user.mention,
             id=m.from_user.id
         ),
-        reply_markup=reply_markup
+        reply_markup=keyboard
     )
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -116,7 +116,11 @@ async def start(_, m: Message):
 async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
     await query.message.reply("<b>ᴄʟɪᴄᴋ /start ᴛᴏ ᴄʜᴇᴄᴋ ʏᴏᴜ ᴀʀᴇ ᴊᴏɪɴᴇᴅ</b>")
-
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ pic ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+START_MSG = """<b>🤗 Hello {first}!</b>\n
+<b>🚀 I am the <u>FASTEST BOT</u>, faster than light ⚡! I approve join requests in just 0.5 seconds.</b>
+<blockquote><b>I'm an auto-approve <a href="https://t.me/telegram/153">Admin Join Requests</a> Bot. I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</b></blockquote>\n
+<b>Powered By : <a href="https://t.me/World_Fastest_Bots">@World_Fastest_Bots</a></b>"""
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_join_request(filters.group | filters.channel)
