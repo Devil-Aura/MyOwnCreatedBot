@@ -71,7 +71,7 @@ async def start(_, m: Message):
         )  
         await m.reply_text(  
             "**⚠️ Access Denied! ⚠️**\n\n"  
-            "Please join my update channel to use me. If you have already joined, click 'Check Again' to confirm.",  
+            "<b>Please join my update channel to use me.</b>/n <blockquote><b>If you have already joined, click 'Check Again' to confirm.</b></blockqoute>",  
             reply_markup=key  
         )  
         return  
@@ -98,19 +98,17 @@ async def start(_, m: Message):
             InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),  
         ],  
     ])  
-    await message.reply_photo(
-            photo=START_PIC,
-            caption=START_MSG.format(
-                first=message.from_user.first_name,
-                last=message.from_user.last_name,
-                username=None if not message.from_user.username else '@' + message.from_user.username,
-                mention=message.from_user.mention,
-                id=message.from_user.id
-            ),
-            reply_markup=reply_markup#,
-            #message_effect_id=5104841245755180586  # 🔥
+    await m.reply_photo(
+        photo=START_PIC,
+        caption=START_MSG.format(
+            first=m.from_user.first_name,
+            last=m.from_user.last_name,
+            username=None if not m.from_user.username else '@' + m.from_user.username,
+            mention=m.from_user.mention,
+            id=m.from_user.id
+        ),
+        reply_markup=reply_markup
     )
-
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_callback_query(filters.regex("^check_again$"))
