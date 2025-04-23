@@ -147,7 +147,7 @@ async def approve(_, m: Message):
 
         await app.approve_chat_join_request(chat.id, user.id)  
 
-        welcome_msg = get_welcome_message(chat.id) or "**<b>🎉 Welcome, {user_mention}! Your request to join {chat_title} has been approved! 🚀</b>/n <blockquote><b>/start To Use Me...!!</b></blockqoute>**"  
+        welcome_msg = get_welcome_message(chat.id) or "**<b>🎉 ᴡᴇʟᴄᴏᴍᴇ, {user_mention}! ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴛᴏ ᴊᴏɪɴ {chat_title} ʜᴀs ʙᴇᴇɴ ᴀᴘᴘʀᴏᴠᴇᴅ ɪɴ 0.5 sᴇᴄᴏɴᴅs!🚀</b>/n <blockquote><b>/start ᴛᴏ ᴜsᴇ ᴍᴇ...!!</b></blockqoute>**"
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))  
 
         add_user(user.id)  
