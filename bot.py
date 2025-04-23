@@ -71,11 +71,13 @@ async def start(_, m: Message):
             ]]  
         )  
         await m.reply_text(  
-    "**⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ! ⚠️**\n\n"
-    "**ᴘʟᴇᴀsᴇ ᴊᴏɪɴ ᴍʏ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍᴇ.**\n\n"
-    "<blockquote><b>ɪғ ʏᴏᴜ'ᴠᴇ ᴀʟʀᴇᴀᴅʏ ᴊᴏɪɴᴇᴅ, ᴄʟɪᴄᴋ '<i>ᴄʜᴇᴄᴋ ᴀɢᴀɪɴ</i>' ᴛᴏ ᴄᴏɴғɪʀᴍ.</b></blockquote>",  
-    reply_markup=key  
-        )  
+    await m.reply_text(
+    """**⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ! ⚠️
+
+    ᴘʟᴇᴀsᴇ ᴊᴏɪɴ ᴍʏ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍᴇ.**
+<blockquote><b>ɪғ ʏᴏᴜ'ᴠᴇ ᴀʟʀᴇᴀᴅʏ ᴊᴏɪɴᴇᴅ, ᴄʟɪᴄᴋ '<i>ᴄʜᴇᴄᴋ ᴀɢᴀɪɴ</i>' ᴛᴏ ᴄᴏɴғɪʀᴍ.</b></blockquote>""",
+    reply_markup=key
+    )  
         return  
 
     # Logging user activity  
@@ -147,7 +149,9 @@ async def approve(_, m: Message):
 
         await app.approve_chat_join_request(chat.id, user.id)  
 
-        welcome_msg = get_welcome_message(chat.id) or "**<b>🎉 ᴡᴇʟᴄᴏᴍᴇ, {user_mention}! ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴛᴏ ᴊᴏɪɴ {chat_title} ʜᴀs ʙᴇᴇɴ ᴀᴘᴘʀᴏᴠᴇᴅ ɪɴ 0.5 sᴇᴄᴏɴᴅs!🚀</b>/n <blockquote><b>/start ᴛᴏ ᴜsᴇ ᴍᴇ...!!</b></blockqoute>**"
+        welcome_msg = get_welcome_message(chat.id) or """**<b>🎉 ᴡᴇʟᴄᴏᴍᴇ, {user_mention}!
+        ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴛᴏ ᴊᴏɪɴ {chat_title} ʜᴀs ʙᴇᴇɴ ᴀᴘᴘʀᴏᴠᴇᴅ! 🚀</b>
+        <blockquote><b>/start ᴛᴏ ᴜsᴇ ᴍᴇ...!!</b></blockqoute>**"""
         await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))  
 
         add_user(user.id)  
