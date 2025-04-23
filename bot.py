@@ -71,9 +71,10 @@ async def start(_, m: Message):
             ]]  
         )  
         await m.reply_text(  
-            "**⚠️ Access Denied! ⚠️**\n\n  
-            **Please join my update channel to use me.**<blockquote><b>If you have already joined, click 'Check Again' to confirm.</b></blockqoute>",  
-            reply_markup=key  
+    "**⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ! ⚠️**\n\n"
+    "**ᴘʟᴇᴀsᴇ ᴊᴏɪɴ ᴍʏ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍᴇ.**\n\n"
+    "<blockquote><b>ɪғ ʏᴏᴜ'ᴠᴇ ᴀʟʀᴇᴀᴅʏ ᴊᴏɪɴᴇᴅ, ᴄʟɪᴄᴋ '<i>ᴄʜᴇᴄᴋ ᴀɢᴀɪɴ</i>' ᴛᴏ ᴄᴏɴғɪʀᴍ.</b></blockquote>",  
+    reply_markup=key  
         )  
         return  
 
