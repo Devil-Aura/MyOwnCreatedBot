@@ -69,8 +69,7 @@ async def start(_, m: Message):
                 InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),  
                 InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")  
             ]]  
-        )  
-        await m.reply_text(  
+        )   
     await m.reply_text(
     """**⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ! ⚠️
 
