@@ -130,6 +130,30 @@ def all_users():
     conn.close()
     return count
 
+def get_all_users():
+    """Get all user IDs from both databases"""
+    users = []
+    
+    # Try MongoDB first
+    if users_collection:
+        try:
+            users = list(set([user["user_id"] for user in users_collection.find({})]))
+        except:
+            pass
+    
+    # If MongoDB fails or empty, use SQLite
+    if not users:
+        try:
+            conn = sqlite3.connect(DB_NAME)
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users")
+            users = [row[0] for row in cursor.fetchall()]
+            conn.close()
+        except:
+            pass
+    
+    return users
+
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None, user_url=None):
