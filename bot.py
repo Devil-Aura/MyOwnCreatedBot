@@ -1,13 +1,14 @@
 from pyrogram.types import Message, InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from pyrogram import filters, Client, errors, enums
-from pyrogram.errors import UserNotParticipant, PeerIdInvalid, ChannelPrivate
+from pyrogram import filters, Client, errors, enums, idle
+from pyrogram.errors import UserNotParticipant, PeerIdInvalid, ChannelPrivate, UserIsBlocked, FloodWait
 from database import (
     add_user, add_group, all_users, all_groups,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
     users_collection, channels_collection as groups_collection,
     add_persistent_broadcast, get_all_pending_broadcasts, get_expired_broadcasts, remove_temporary_broadcast,
-    store_user_message, get_user_message_info
+    store_user_message, get_user_message_info,
+    disable_broadcast, enable_broadcast
 )
 from config import cfg
 import asyncio
@@ -141,7 +142,7 @@ async def start(_, m: Message):
     user_mention = m.from_user.mention
 
     if is_user_banned(user_id):  
-        await m.reply("🚫 You are banned from using this bot!(@Fastest_Bots_Support)")  
+        await m.reply("🚫 You are banned from using this bot! Contact @Fastest_Bots_Support")  
         return  
 
     try:  
@@ -159,10 +160,10 @@ async def start(_, m: Message):
             ]]  
         )   
         await m.reply_text(
-            """**⚠️ ᴀᴄᴄᴇss ᴅᴇɴɪᴇᴅ! ⚠️
+            """**⚠️ ACCESS DENIED! ⚠️**
 
-            ᴘʟᴇᴀsᴇ ᴊᴏɪɴ ᴍʏ ᴜᴘᴅᴀᴛᴇ ᴄʜᴀɴɴᴇʟ ᴛᴏ ᴜsᴇ ᴍᴇ.**
-    <blockquote><b>ɪғ ʏᴏᴜ'ᴠᴇ ᴀʟʀᴇᴀᴅʏ ᴊᴏɪɴᴇᴅ, ᴄʟɪᴄᴋ '<i>ᴄʜᴇᴄᴋ ᴀɢᴀɪɴ</i>' ᴛᴏ ᴄᴏɴғɪʀᴍ.</b></blockquote>""",
+Please join my update channel to use me.**
+    <blockquote><b>If you've already joined, click '<i>Check Again</i>' to confirm.</b></blockquote>""",
             reply_markup=key
         )  
         return
@@ -189,24 +190,52 @@ async def start(_, m: Message):
             InlineKeyboardButton("➕ Add Me in Group", url="https://t.me/Auto_Request_Accept_Fast_bot?startgroup"),  
         ],  
     ])  
-    await m.reply_photo(
-    "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
-    caption=(
-        f"**🤗 ʜᴇʟʟᴏ {m.from_user.mention}!\n\n"
-        f"🚀 ɪ ᴀᴍ ᴛʜᴇ ғᴀsᴛᴇsᴛ ʙᴏᴛ, ғᴀsᴛᴇʀ ᴛʜᴀɴ ʟɪɢʜᴛ ⚡!"
-        f"ɪ ᴀᴘᴘʀᴏᴠᴇ ᴊᴏɪɴ ʀᴇǫᴜᴇsᴛs ɪɴ ᴊᴜsᴛ 0.5 sᴇᴄᴏɴᴅs.\n"
-        f"<blockquote>ɪ ᴄᴀɴ ᴀᴘᴘʀᴏᴠᴇ ᴜsᴇʀs ɪɴ ɢʀᴏᴜᴘs/ᴄʜᴀɴɴᴇʟs. ᴀᴅᴅ ᴍᴇ ᴛᴏ ʏᴏᴜʀ ᴄʜᴀᴛ ᴀɴᴅ ᴘʀᴏᴍᴏᴛᴇ ᴍᴇ ᴛᴏ ᴀᴅᴍɪɴ ᴡɪᴛʜ 'ᴀᴅᴅ ᴍᴇᴍʙᴇʀs' ᴘᴇʀᴍɪssɪᴏɴ.</blockquote>\n\n"
-        f"ᴘᴏᴡᴇʀᴇᴅ ʙʏ : @World_Fastest_Bots**"
-    ),
-    reply_markup=keyboard,
-    )
+    
+    try:
+        await m.reply_photo(
+            "https://i.ibb.co/6wQZY57/photo-2024-12-30-17-57-41-7454266052625563676.jpg",
+            caption=(
+                f"**🤗 Hello {m.from_user.mention}!\n\n"
+                f"🚀 I am the FASTEST BOT, faster than light ⚡!"
+                f"I approve join requests in just 0.5 seconds.\n"
+                f"<blockquote>I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</blockquote>\n\n"
+                f"Powered by : @World_Fastest_Bots**"
+            ),
+            reply_markup=keyboard,
+        )
+    except Exception as e:
+        print(f"Error sending start message: {e}")
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_callback_query(filters.regex("^check_again$"))
 async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
-    await query.message.reply("<b>ᴄʟɪᴄᴋ /start ᴛᴏ ᴄʜᴇᴄᴋ ʏᴏᴜ ᴀʀᴇ ᴊᴏɪɴᴇᴅ</b>")
+    user_id = query.from_user.id
+    
+    try:  
+        await app.get_chat_member(cfg.CHID, user_id)
+        # User has joined, send start message
+        await start(_, query.message)
+    except UserNotParticipant:  
+        try:  
+            invite_link = await app.create_chat_invite_link(cfg.CHID)  
+        except:  
+            await query.message.reply("**Make sure I am an admin in your channel!**")  
+            return  
+        key = InlineKeyboardMarkup(  
+            [[  
+                InlineKeyboardButton("🍿 Join Update Channel 🍿", url=invite_link.invite_link),  
+                InlineKeyboardButton("🍀 Check Again 🍀", callback_data="check_again")  
+            ]]  
+        )   
+        await query.message.reply_text(
+            """**⚠️ ACCESS DENIED! ⚠️**
+
+Please join my update channel to use me.**
+    <blockquote><b>If you've already joined, click '<i>Check Again</i>' to confirm.</b></blockquote>""",
+            reply_markup=key
+        )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -216,41 +245,65 @@ async def approve(_, m: Message):
     user = m.from_user
 
     try:  
+        # Check if user is already in chat to avoid USER_ALREADY_PARTICIPANT error
+        try:
+            await app.get_chat_member(chat.id, user.id)
+            # User is already participant, skip approval
+            print(f"User {user.id} already in chat {chat.id}, skipping approval")
+            return
+        except UserNotParticipant:
+            # User is not participant, proceed with approval
+            pass
+
         # Fetch the private invite link for the group/channel  
         invite_link = await app.export_chat_invite_link(chat.id)
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"  
 
         # Fetch user details  
-        user_name = user.first_name or "Unknown"  
         username = user.username or f"User-{user.id}"  
-        user_url = f"https://t.me/{username}" if username else f"https://t.me/User-{user.id}"  
+        user_url = f"https://t.me/{username}" if user.username else f"https://t.me/User-{user.id}"  
 
         # Add group/channel with user details  
         add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=username, user_url=user_url)  
 
+        # Approve the request
         await app.approve_chat_join_request(chat.id, user.id)  
+        print(f"✅ Approved join request for user {user.id} in {chat.title}")
 
-        welcome_msg = get_welcome_message(chat.id) or """**<b>🎉 ᴡᴇʟᴄᴏᴍᴇ, {user_mention}!
-        ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴛᴏ ᴊᴏɪɴ {chat_title} ʜᴀs ʙᴇᴇɴ ᴀᴘᴘʀᴏᴠᴇᴅ! 🚀</b>
-        <blockquote><b>/start ᴛᴏ ᴜsᴇ ᴍᴇ...!!</b></blockqoute>**"""
-        await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))  
+        # Send welcome message with error handling
+        welcome_msg = get_welcome_message(chat.id) or """**🎉 Welcome, {user_mention}!
+Your request to join {chat_title} has been approved! 🚀
+<blockquote>/start to use me...!!</blockquote>**"""
+        
+        try:
+            await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))  
+        except UserIsBlocked:
+            print(f"User {user.id} has blocked the bot, cannot send welcome message")
+        except Exception as e:
+            print(f"Error sending welcome message: {e}")
 
         add_user(user.id)  
+        
+    except errors.UserAlreadyParticipant:
+        print(f"User {user.id} already participant in {chat.id}")
     except errors.PeerIdInvalid:  
-        print("User hasn't started the bot (group issue)")  
+        print("User hasn't started the bot")
     except Exception as e:  
-        print(str(e))
+        print(f"Error in approval: {e}")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ New Features ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("restart") & filters.user(cfg.SUDO))
 async def restart_bot(_, m: Message):
     await m.reply("♻️ Restarting bot...")
-    await app.send_message(
-        LOG_CHANNEL,
-        f"🔄 Bot restarted by {m.from_user.mention}\n"
-        f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    )
+    try:
+        await app.send_message(
+            LOG_CHANNEL,
+            f"🔄 Bot restarted by {m.from_user.mention}\n"
+            f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+    except:
+        pass
     os.execl(sys.executable, sys.executable, *sys.argv)
 
 @app.on_message(filters.command("status") & filters.user(cfg.SUDO))
@@ -262,11 +315,81 @@ async def show_status(_, m: Message):
         f"⚙️ **System Status**\n\n"
         f"{get_system_stats()}\n"
         f"⏱ Uptime: `{format_uptime(time.time() - START_TIME)}`\n"
-        f"🕒 Started: `{datetime.fromtimestamp(START_TIME).strftime('%Y-%m-%d %H:%M')}`\n"
-        f"⏰ Pending Temporary Broadcasts: `{len(pending_broadcasts)}`"
+        f"🕒 Started: `{datetime.fromtimestamp(START_TIME).strftime('%Y-%m-%d %H:%M:%S')}`\n"
+        f"⏰ Pending Temp Broadcasts: `{len(pending_broadcasts)}`"
     )
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Temporary Broadcast Feature (PERSISTENT) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
+async def broadcast_message(_, m: Message):
+    if not m.reply_to_message:
+        await m.reply("⚠️ Please reply to a message to broadcast it!")
+        return
+
+    broadcast_msg = m.reply_to_message  
+    processing_msg = await m.reply("🔄 Starting broadcast...")
+
+    # Get all users
+    all_users_list = []
+    
+    # Try MongoDB first
+    if users_collection:
+        try:
+            all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))
+        except:
+            pass
+    
+    # If MongoDB fails, use SQLite
+    if not all_users_list:
+        try:
+            import sqlite3
+            conn = sqlite3.connect("bot_database.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users")
+            all_users_list = [row[0] for row in cursor.fetchall()]
+            conn.close()
+        except:
+            await processing_msg.edit("❌ Failed to get user list from database")
+            return
+
+    disabled_users = get_disabled_broadcast_users()  
+    banned_users = get_banned_users()  
+
+    success = 0  
+    failed = 0  
+    blocked = 0
+
+    await processing_msg.edit(f"📤 Broadcasting to {len(all_users_list)} users...")
+
+    for user_id in all_users_list:  
+        if user_id not in disabled_users and user_id not in banned_users:  
+            try:  
+                await broadcast_msg.copy(user_id)  
+                success += 1  
+            except UserIsBlocked:
+                blocked += 1
+            except Exception as e:  
+                failed += 1
+            
+            # Update progress every 50 users
+            if (success + failed + blocked) % 50 == 0:
+                try:
+                    await processing_msg.edit(
+                        f"📤 Broadcasting...\n"
+                        f"✅ Success: {success} | ❌ Failed: {failed} | 🚫 Blocked: {blocked}"
+                    )
+                except:
+                    pass
+            
+            await asyncio.sleep(0.1)  # Prevent flooding
+
+    await processing_msg.edit(
+        f"📢 **Broadcast Completed!**\n\n"
+        f"✅ Success: `{success}`\n"
+        f"❌ Failed: `{failed}`\n"
+        f"🚫 Blocked: `{blocked}`"
+    )
 
 @app.on_message(filters.command("dbroadcast") & filters.user(cfg.SUDO) & filters.reply)
 async def temporary_broadcast(_, m: Message):
@@ -288,18 +411,17 @@ async def temporary_broadcast(_, m: Message):
     original_broadcast_time = datetime.now()
     delete_time = original_broadcast_time + timedelta(seconds=duration_seconds)
     broadcast_msg = m.reply_to_message
+    processing_msg = await m.reply("🔄 Starting temporary broadcast...")
 
-    # Get all users from both MongoDB and SQLite as fallback
+    # Get all users
     all_users_list = []
     
-    # Try MongoDB first
     if users_collection:
         try:
             all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))
         except:
             pass
     
-    # If MongoDB fails, use SQLite
     if not all_users_list:
         try:
             import sqlite3
@@ -309,7 +431,7 @@ async def temporary_broadcast(_, m: Message):
             all_users_list = [row[0] for row in cursor.fetchall()]
             conn.close()
         except:
-            await m.reply("❌ Failed to get user list from database")
+            await processing_msg.edit("❌ Failed to get user list from database")
             return
 
     disabled_users = get_disabled_broadcast_users()  
@@ -317,8 +439,10 @@ async def temporary_broadcast(_, m: Message):
 
     success = 0  
     failed = 0  
+    blocked = 0
 
-    # Send the message to all users  
+    await processing_msg.edit(f"📤 Temporary broadcasting to {len(all_users_list)} users...")
+
     for user_id in all_users_list:  
         if user_id not in disabled_users and user_id not in banned_users:  
             try:  
@@ -336,18 +460,30 @@ async def temporary_broadcast(_, m: Message):
                 asyncio.create_task(delete_single_broadcast(user_id, sent_msg.id, duration_seconds))
                 
                 success += 1  
+            except UserIsBlocked:
+                blocked += 1
             except Exception as e:  
-                print(f"Failed to send message to {user_id}: {e}")  
-                failed += 1  
+                failed += 1
+            
+            # Update progress
+            if (success + failed + blocked) % 50 == 0:
+                try:
+                    await processing_msg.edit(
+                        f"📤 Temporary Broadcasting...\n"
+                        f"✅ Success: {success} | ❌ Failed: {failed} | 🚫 Blocked: {blocked}"
+                    )
+                except:
+                    pass
+            
             await asyncio.sleep(0.1)
 
-    # Send broadcast stats to the admin  
-    stats_msg = await m.reply(  
-        f"⏰ **Temporary Broadcast Sent!**\n\n"  
-        f"✅ Success: `{success}`\n"  
-        f"❌ Failed: `{failed}`\n"  
+    stats_msg = await processing_msg.edit(
+        f"⏰ **Temporary Broadcast Sent!**\n\n"
+        f"✅ Success: `{success}`\n"
+        f"❌ Failed: `{failed}`\n"
+        f"🚫 Blocked: `{blocked}`\n"
         f"⏳ Will auto-delete in: `{time_str}`\n"
-        f"💾 **Persistent**: Survives bot restart! ✅"  
+        f"💾 **Persistent**: Survives bot restart! ✅"
     )
 
     # Schedule deletion of stats message
@@ -359,7 +495,7 @@ async def temporary_broadcast(_, m: Message):
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ User Message Forwarding & Reply System ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_message(filters.private & ~filters.command(["start", "stats", "broadcast", "dbroadcast", "ban", "unban", "restart", "status"]))
+@app.on_message(filters.private & ~filters.command(["start", "stats", "broadcast", "dbroadcast", "ban", "unban", "restart", "status", "clean_broadcasts", "disable_broadcast", "enable_broadcast", "show_banned", "show_disabled"]))
 async def forward_user_message(_, m: Message):
     user_id = m.from_user.id
     
@@ -399,19 +535,24 @@ async def reply_to_user(_, m: Message):
             user_id = user_message_info["user_id"]
             
             # Send the reply to the user
-            if m.text:
-                await app.send_message(user_id, f"**💌 Admin Reply:**\n\n{m.text}")
-            elif m.media:
-                await m.copy(user_id, caption=f"**💌 Admin Reply:**\n\n{m.caption}" if m.caption else None)
-            
-            await m.reply("✅ Reply sent to user!")
+            try:
+                if m.text:
+                    await app.send_message(user_id, f"**💌 Admin Reply:**\n\n{m.text}")
+                elif m.media:
+                    await m.copy(user_id, caption=f"**💌 Admin Reply:**\n\n{m.caption}" if m.caption else None)
+                
+                await m.reply("✅ Reply sent to user!")
+            except UserIsBlocked:
+                await m.reply("❌ User has blocked the bot, cannot send reply.")
+            except Exception as e:
+                await m.reply(f"❌ Failed to send reply: {e}")
         else:
             await m.reply("❌ Could not find user information for this message.")
             
     except Exception as e:
         await m.reply(f"❌ Failed to send reply: {e}")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
 async def stats(_, m: Message):
@@ -423,8 +564,8 @@ async def stats(_, m: Message):
 
     await m.reply_text(  
         f"📊 **Bot Stats**\n\n"  
-        f"👥 Users: `{total_users}`\n"  
-        f"📢 Groups: `{total_groups}`\n"  
+        f"👥 Total Users: `{total_users}`\n"  
+        f"📢 Total Groups: `{total_groups}`\n"  
         f"🚫 Banned Users: `{banned_users}`\n"  
         f"🔕 Disabled Broadcasts: `{disabled_broadcasts}`\n"
         f"⏰ Pending Temp Broadcasts: `{pending_broadcasts}`"  
@@ -442,122 +583,93 @@ async def clean_broadcasts(_, m: Message):
     except Exception as e:
         await m.reply(f"❌ Cleanup failed: {e}")
 
-@app.on_message(filters.command("Set_Welcome_Mgs") & filters.user(cfg.SUDO))
-async def set_welcome(_, m: Message):
-    chat_id = m.chat.id
-    welcome_msg = m.text.split(None, 1)[1] if len(m.text.split()) > 1 else None
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome Message Management ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    if not welcome_msg:  
-        await m.reply("⚠️ Please provide a welcome message!")  
-        return  
+@app.on_message(filters.command("set_welcome") & filters.user(cfg.SUDO))
+async def set_welcome(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("⚠️ Please provide a welcome message!\nExample: `/set_welcome Welcome {user_mention} to {chat_title}!`")
+        return
+
+    chat_id = m.chat.id
+    welcome_msg = m.text.split(None, 1)[1]
 
     set_welcome_message(chat_id, welcome_msg)  
-    await m.reply("✅ Welcome message updated successfully!")
+    await m.reply("✅ Welcome message updated successfully!\nUse `{user_mention}` for user mention and `{chat_title}` for chat title.")
 
-@app.on_message(filters.command("Disable_Boardcast") & filters.user(cfg.SUDO))
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Control Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
 async def disable_broadcast_cmd(_, m: Message):
     if len(m.command) < 2:
         await m.reply("⚠️ Please provide a user ID!")
         return
 
-    user_id = int(m.command[1])  
-    disable_broadcast(user_id)  
-    await m.reply(f"🚫 Broadcasts disabled for `{user_id}`.")
+    try:
+        user_id = int(m.command[1])  
+        disable_broadcast(user_id)  
+        await m.reply(f"🚫 Broadcasts disabled for user `{user_id}`.")
+    except ValueError:
+        await m.reply("❌ Invalid user ID!")
 
-@app.on_message(filters.command("Unable_Boardcast") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
 async def enable_broadcast_cmd(_, m: Message):
     if len(m.command) < 2:
         await m.reply("⚠️ Please provide a user ID!")
         return
 
-    user_id = int(m.command[1])  
-    enable_broadcast(user_id)  
-    await m.reply(f"🔔 Broadcasts enabled for `{user_id}`.")
+    try:
+        user_id = int(m.command[1])  
+        enable_broadcast(user_id)  
+        await m.reply(f"🔔 Broadcasts enabled for user `{user_id}`.")
+    except ValueError:
+        await m.reply("❌ Invalid user ID!")
 
-@app.on_message(filters.command("Shows_Disable_Boardcast_Users") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("show_disabled") & filters.user(cfg.SUDO))
 async def show_disabled_broadcasts(_, m: Message):
     users = get_disabled_broadcast_users()
-    text = "🔕 Users with Disabled Broadcasts:\n" + "\n".join(f"👤 {user}" for user in users)
+    if users:
+        text = "🔕 Users with Disabled Broadcasts:\n" + "\n".join(f"👤 `{user}`" for user in users)
+    else:
+        text = "✅ No users have disabled broadcasts."
     await m.reply(text)
 
-@app.on_message(filters.command("Ban") & filters.user(cfg.SUDO))
-async def ban(_, m: Message):
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Ban Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.command("ban") & filters.user(cfg.SUDO))
+async def ban_user_cmd(_, m: Message):
     if len(m.command) < 2:
         await m.reply("⚠️ Please provide a user ID!")
         return
 
-    user_id = int(m.command[1])  
-    ban_user(user_id)  
-    await m.reply(f"🚫 User `{user_id}` has been banned!")
+    try:
+        user_id = int(m.command[1])  
+        ban_user(user_id)  
+        await m.reply(f"🚫 User `{user_id}` has been banned!")
+    except ValueError:
+        await m.reply("❌ Invalid user ID!")
 
-@app.on_message(filters.command("Unban") & filters.user(cfg.SUDO))
-async def unban(_, m: Message):
+@app.on_message(filters.command("unban") & filters.user(cfg.SUDO))
+async def unban_user_cmd(_, m: Message):
     if len(m.command) < 2:
         await m.reply("⚠️ Please provide a user ID!")
         return
 
-    user_id = int(m.command[1])  
-    unban_user(user_id)  
-    await m.reply(f"✅ User `{user_id}` has been unbanned!")
+    try:
+        user_id = int(m.command[1])  
+        unban_user(user_id)  
+        await m.reply(f"✅ User `{user_id}` has been unbanned!")
+    except ValueError:
+        await m.reply("❌ Invalid user ID!")
 
-@app.on_message(filters.command("Shows_Banusers") & filters.user(cfg.SUDO))
+@app.on_message(filters.command("show_banned") & filters.user(cfg.SUDO))
 async def show_banned_users(_, m: Message):
     users = get_banned_users()
-    text = "🚫 Banned Users:\n" + "\n".join(f"👤 {user}" for user in users)
+    if users:
+        text = "🚫 Banned Users:\n" + "\n".join(f"👤 `{user}`" for user in users)
+    else:
+        text = "✅ No users are currently banned."
     await m.reply(text)
-
-@app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
-async def broadcast_message(_, m: Message):
-    if not m.reply_to_message:
-        await m.reply("⚠️ Please reply to a message to broadcast it!")
-        return
-
-    broadcast_msg = m.reply_to_message  
-
-    # Get all users from both MongoDB and SQLite as fallback
-    all_users_list = []
-    
-    # Try MongoDB first
-    if users_collection:
-        try:
-            all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))
-        except:
-            pass
-    
-    # If MongoDB fails, use SQLite
-    if not all_users_list:
-        try:
-            import sqlite3
-            conn = sqlite3.connect("bot_database.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM users")
-            all_users_list = [row[0] for row in cursor.fetchall()]
-            conn.close()
-        except:
-            await m.reply("❌ Failed to get user list from database")
-            return
-
-    disabled_users = get_disabled_broadcast_users()  
-    banned_users = get_banned_users()  
-
-    success = 0  
-    failed = 0  
-
-    for user_id in all_users_list:  
-        if user_id not in disabled_users and user_id not in banned_users:  
-            try:  
-                await broadcast_msg.copy(user_id)  
-                success += 1  
-            except Exception as e:  
-                print(f"Failed to send message to {user_id}: {e}")  
-                failed += 1  
-            await asyncio.sleep(0.1)
-
-    await m.reply(  
-        f"📢 **Broadcast Completed!**\n\n"  
-        f"✅ Success: `{success}`\n"  
-        f"❌ Failed: `{failed}`"  
-    )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Start Bot ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -568,6 +680,40 @@ async def main():
     # Start background tasks
     asyncio.create_task(cleanup_temporary_broadcasts())
     print("✅ Background tasks started!")
+    
+    # Send startup message to log channel
+    try:
+        await app.send_message(
+            LOG_CHANNEL,
+            f"🤖 **Bot Started Successfully!**\n"
+            f"⏰ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"👥 Users: {all_users()}\n"
+            f"📢 Groups: {all_groups()}"
+        )
+    except:
+        pass
+    
+    print("🔧 All features loaded and ready!")
+    print("\n" + "="*50)
+    print("🤖 BOT COMMANDS LIST:")
+    print("="*50)
+    print("👤 User Commands:")
+    print("• /start - Start the bot")
+    print("\n🛠️ Admin Commands:")
+    print("• /stats - Show bot statistics")
+    print("• /status - Show system status")
+    print("• /restart - Restart the bot")
+    print("• /broadcast - Broadcast message (reply)")
+    print("• /dbroadcast - Temporary broadcast (reply with time)")
+    print("• /clean_broadcasts - Clean expired broadcasts")
+    print("• /set_welcome - Set welcome message")
+    print("• /ban - Ban a user")
+    print("• /unban - Unban a user")
+    print("• /show_banned - Show banned users")
+    print("• /disable_broadcast - Disable broadcast for user")
+    print("• /enable_broadcast - Enable broadcast for user")
+    print("• /show_disabled - Show users with disabled broadcasts")
+    print("="*50)
     
     # Keep the bot running
     await idle()
