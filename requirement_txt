@@ -8,3 +8,4 @@ Jinja2==3.0.3
 Flask==2.2.5
 Werkzeug==2.2.3
 itsdangerous==2.1.2
+psutil==5.9.5
