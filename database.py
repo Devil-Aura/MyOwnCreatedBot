@@ -1,20 +1,23 @@
 import sqlite3
 from pymongo import MongoClient
 from os import getenv
+from datetime import datetime, timedelta
 
 # Load MongoDB URI from environment variables
-MONGO_URI = getenv("MONGO_URI", "mongodb+srv://iamrealdevil098:M7UXF0EL3M352q0H@cluster0.257nd.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+MONGO_URI = getenv("MONGO_URI", "mongodb+srv://ajedvwess_db_user:pU3egnmZuEuHvWsd@cluster0.bflbyzu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 
 # Connect to MongoDB
-client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)  # Disable SSL verification
-db = client["Cluster0"]  # Database name (change if needed)
+client = MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)
+db = client["Cluster0"]
 
 # Collections
-users_collection = db["users"]  # Collection for storing user data
-channels_collection = db["channels"]  # Collection for storing channel/group data
+users_collection = db["users"]
+channels_collection = db["channels"]
+temporary_broadcasts_collection = db["temporary_broadcasts"]
+user_messages_collection = db["user_messages"]
 
 # Define DB Name for SQLite
-DB_NAME = "bot_database.db"  # Make sure DB_NAME is defined
+DB_NAME = "bot_database.db"
 
 # Create Tables
 def create_tables():
@@ -70,7 +73,11 @@ def add_user(user_id):
     conn.close()
 
     # Add to MongoDB
-    users_collection.insert_one({"user_id": user_id})
+    users_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {"user_id": user_id, "joined_at": datetime.now()}},
+        upsert=True
+    )
 
 def remove_user(user_id):
     conn = sqlite3.connect(DB_NAME)
@@ -80,12 +87,8 @@ def remove_user(user_id):
     conn.close()
 
 def all_users():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM users")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+    # Get count from MongoDB
+    return users_collection.count_documents({})
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -97,23 +100,53 @@ def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None, 
     conn.close()
 
     # Add to MongoDB
-    channels_collection.insert_one({
-        "user_id": user_id,
-        "username": username or f"User-{user_id}",  # Add username
-        "user_url": user_url or f"https://t.me/{username}",  # Add user URL
-        "chat_id": chat_id,
-        "chat_title": chat_title,
-        "chat_url": chat_url,
-        "type": chat_type  # Ensure this field is always added
-    })
+    channels_collection.update_one(
+        {"chat_id": chat_id},
+        {"$set": {
+            "user_id": user_id,
+            "username": username or f"User-{user_id}",
+            "user_url": user_url or f"https://t.me/{username}",
+            "chat_id": chat_id,
+            "chat_title": chat_title,
+            "chat_url": chat_url,
+            "type": chat_type,
+            "added_at": datetime.now()
+        }},
+        upsert=True
+    )
 
 def all_groups():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM groups")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+    # Get count from MongoDB
+    return channels_collection.count_documents({})
+
+#━━━━━━━━━━━━━━━━━━━━━━━ Temporary Broadcast Management ━━━━━━━━━━━━━━━━━━━━━━━
+
+def add_temporary_broadcast(message_id, delete_time):
+    temporary_broadcasts_collection.insert_one({
+        "message_id": message_id,
+        "delete_time": delete_time,
+        "created_at": datetime.now()
+    })
+
+def get_expired_broadcasts():
+    now = datetime.now()
+    return list(temporary_broadcasts_collection.find({"delete_time": {"$lte": now}}))
+
+def remove_temporary_broadcast(message_id):
+    temporary_broadcasts_collection.delete_one({"message_id": message_id})
+
+#━━━━━━━━━━━━━━━━━━━━━━━ User Message Management ━━━━━━━━━━━━━━━━━━━━━━━
+
+def store_user_message(user_id, message_id, log_message_id):
+    user_messages_collection.insert_one({
+        "user_id": user_id,
+        "user_message_id": message_id,
+        "log_message_id": log_message_id,
+        "timestamp": datetime.now()
+    })
+
+def get_user_message_info(log_message_id):
+    return user_messages_collection.find_one({"log_message_id": log_message_id})
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Control ━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -202,7 +235,6 @@ def get_welcome_message(chat_id):
 #━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Tracking ━━━━━━━━━━━━━━━━━━━━━━━
 
 def get_user_channels():
-    # Fetch all channels/groups from MongoDB
     user_channels = channels_collection.find({})
     channels = {}
 
@@ -210,11 +242,10 @@ def get_user_channels():
         user_id = channel["user_id"]
         chat_title = channel["chat_title"]
         chat_url = channel["chat_url"]
-        chat_type = channel.get("type", "unknown")  # Use .get() to avoid KeyError
-        username = channel.get("username", f"User-{user_id}")  # Fetch username
-        user_url = channel.get("user_url", f"https://t.me/{username}")  # Fetch user URL
+        chat_type = channel.get("type", "unknown")
+        username = channel.get("username", f"User-{user_id}")
+        user_url = channel.get("user_url", f"https://t.me/{username}")
 
-        # Initialize the user's entry if it doesn't exist
         if user_id not in channels:
             channels[user_id] = {
                 "username": username,
@@ -225,7 +256,6 @@ def get_user_channels():
                 "groups": []
             }
 
-        # Add the channel/group to the user's entry
         if chat_type == "channel":
             channels[user_id]["channels"].append({
                 "chat_title": chat_title,
