@@ -6,9 +6,8 @@ from database import (
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
     users_collection, channels_collection as groups_collection,
-    add_persistent_broadcast, get_all_pending_broadcasts, get_expired_broadcasts, remove_temporary_broadcast,
-    store_user_message, get_user_message_info,
-    disable_broadcast, enable_broadcast
+    disable_broadcast, enable_broadcast,
+    add_persistent_broadcast, get_all_pending_broadcasts, get_expired_broadcasts, remove_temporary_broadcast
 )
 from config import cfg
 import asyncio
@@ -29,7 +28,7 @@ app = Client(
 
 # Global variables
 START_TIME = time.time()
-LOG_CHANNEL = -1002446826368  # Replace with your actual log channel ID
+LOG_CHANNEL = -1002906408590  # Your log channel
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Helper Functions ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -67,7 +66,7 @@ def parse_time(time_str):
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Background Tasks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 async def cleanup_temporary_broadcasts():
-    """Background task to clean up expired broadcasts - SURVIVES BOT RESTART"""
+    """Background task to clean up expired broadcasts"""
     print("🔄 Starting temporary broadcast cleanup task...")
     
     # Check for pending broadcasts from previous sessions
@@ -79,7 +78,6 @@ async def cleanup_temporary_broadcasts():
             user_id = broadcast["user_id"]
             message_id = broadcast["message_id"]
             delete_time = broadcast["delete_time"]
-            original_time = broadcast["original_broadcast_time"]
             
             # Calculate remaining time
             now = datetime.now()
@@ -174,7 +172,8 @@ Please join my update channel to use me.**
             LOG_CHANNEL,  
             f"**New User Started the Bot!**\n\n"  
             f"👤 **User:** {user_mention}\n"  
-            f"🆔 **User ID:** `{user_id}`"  
+            f"🆔 **User ID:** `{user_id}`\n"  
+            f"📱 **Username:** @{m.from_user.username if m.from_user.username else 'N/A'}"  
         )  
     except Exception as e:  
         print(f"Failed to send log message: {e}")  
@@ -260,15 +259,28 @@ async def approve(_, m: Message):
         chat_type = "channel" if chat.type == enums.ChatType.CHANNEL else "group"  
 
         # Fetch user details  
-        username = user.username or f"User-{user.id}"  
-        user_url = f"https://t.me/{username}" if user.username else f"https://t.me/User-{user.id}"  
+        username = user.username or "N/A"
+        user_url = f"https://t.me/{username}" if user.username else f"tg://user?id={user.id}"
 
         # Add group/channel with user details  
         add_group(chat.id, user.id, chat.title, invite_link, chat_type, username=username, user_url=user_url)  
 
         # Approve the request
         await app.approve_chat_join_request(chat.id, user.id)  
-        print(f"✅ Approved join request for user {user.id} in {chat.title}")
+        
+        # Send approval log to channel
+        try:
+            await app.send_message(
+                LOG_CHANNEL,
+                f"✅ **Approved join request for user** {user.mention}\n"
+                f"🆔 **User ID:** `{user.id}`\n"
+                f"📱 **Username:** @{username}\n"
+                f"📢 **Chat:** {chat.title}\n"
+                f"🆔 **Chat ID:** `{chat.id}`\n"
+                f"⏰ **Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+        except Exception as e:
+            print(f"Failed to send approval log: {e}")
 
         # Send welcome message with error handling
         welcome_msg = get_welcome_message(chat.id) or """**🎉 Welcome, {user_mention}!
@@ -276,9 +288,31 @@ Your request to join {chat_title} has been approved! 🚀
 <blockquote>/start to use me...!!</blockquote>**"""
         
         try:
-            await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))  
+            await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
+            # Log successful welcome message
+            try:
+                await app.send_message(
+                    LOG_CHANNEL,
+                    f"💌 **Welcome message sent to** {user.mention}\n"
+                    f"🆔 **User ID:** `{user.id}`\n"
+                    f"📱 **Username:** @{username}\n"
+                    f"📢 **Chat:** {chat.title}"
+                )
+            except:
+                pass
         except UserIsBlocked:
-            print(f"User {user.id} has blocked the bot, cannot send welcome message")
+            # Log blocked user
+            try:
+                await app.send_message(
+                    LOG_CHANNEL,
+                    f"🚫 **User blocked the bot:** {user.mention}\n"
+                    f"🆔 **User ID:** `{user.id}`\n"
+                    f"📱 **Username:** @{username}\n"
+                    f"📢 **Chat:** {chat.title}\n"
+                    f"❌ **Welcome message not sent**"
+                )
+            except:
+                pass
         except Exception as e:
             print(f"Error sending welcome message: {e}")
 
@@ -293,30 +327,17 @@ Your request to join {chat_title} has been approved! 🚀
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_message(filters.command("restart") & filters.user(cfg.SUDO))
-async def restart_bot(_, m: Message):
-    await m.reply("♻️ Restarting bot...")
-    try:
-        await app.send_message(
-            LOG_CHANNEL,
-            f"🔄 Bot restarted by {m.from_user.mention}\n"
-            f"⏱ {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        )
-    except:
-        pass
-    os.execl(sys.executable, sys.executable, *sys.argv)
-
 @app.on_message(filters.command("status") & filters.user(cfg.SUDO))
 async def show_status(_, m: Message):
     # Count pending temporary broadcasts
-    pending_broadcasts = get_all_pending_broadcasts()
+    pending_broadcasts = len(get_all_pending_broadcasts())
     
     await m.reply_text(
         f"⚙️ **System Status**\n\n"
         f"{get_system_stats()}\n"
         f"⏱ Uptime: `{format_uptime(time.time() - START_TIME)}`\n"
         f"🕒 Started: `{datetime.fromtimestamp(START_TIME).strftime('%Y-%m-%d %H:%M:%S')}`\n"
-        f"⏰ Pending Temp Broadcasts: `{len(pending_broadcasts)}`"
+        f"⏰ Pending Temp Broadcasts: `{pending_broadcasts}`"
     )
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -493,65 +514,6 @@ async def temporary_broadcast(_, m: Message):
     except:
         pass
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ User Message Forwarding & Reply System ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-@app.on_message(filters.private & ~filters.command(["start", "stats", "broadcast", "dbroadcast", "ban", "unban", "restart", "status", "clean_broadcasts", "disable_broadcast", "enable_broadcast", "show_banned", "show_disabled"]))
-async def forward_user_message(_, m: Message):
-    user_id = m.from_user.id
-    
-    if is_user_banned(user_id):
-        return
-
-    # Forward user message to log channel
-    try:
-        forwarded_msg = await m.forward(LOG_CHANNEL)
-        
-        # Store message info for reply system
-        store_user_message(user_id, m.id, forwarded_msg.id)
-        
-        # Send info about the user
-        user_info = f"**💬 New Message from User**\n\n"
-        user_info += f"👤 **User:** {m.from_user.mention}\n"
-        user_info += f"🆔 **ID:** `{m.from_user.id}`\n"
-        if m.from_user.username:
-            user_info += f"📱 **Username:** @{m.from_user.username}\n"
-        user_info += f"⏰ **Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        user_info += "**💡 Reply to this message to respond to the user!**"
-        
-        await app.send_message(LOG_CHANNEL, user_info, reply_to_message_id=forwarded_msg.id)
-        
-    except Exception as e:
-        print(f"Failed to forward user message: {e}")
-
-@app.on_message(filters.chat(LOG_CHANNEL) & filters.reply & filters.user(cfg.SUDO))
-async def reply_to_user(_, m: Message):
-    try:
-        replied_msg = m.reply_to_message
-        
-        # Get user message info from database
-        user_message_info = get_user_message_info(replied_msg.id)
-        
-        if user_message_info:
-            user_id = user_message_info["user_id"]
-            
-            # Send the reply to the user
-            try:
-                if m.text:
-                    await app.send_message(user_id, f"**💌 Admin Reply:**\n\n{m.text}")
-                elif m.media:
-                    await m.copy(user_id, caption=f"**💌 Admin Reply:**\n\n{m.caption}" if m.caption else None)
-                
-                await m.reply("✅ Reply sent to user!")
-            except UserIsBlocked:
-                await m.reply("❌ User has blocked the bot, cannot send reply.")
-            except Exception as e:
-                await m.reply(f"❌ Failed to send reply: {e}")
-        else:
-            await m.reply("❌ Could not find user information for this message.")
-            
-    except Exception as e:
-        await m.reply(f"❌ Failed to send reply: {e}")
-
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
@@ -677,7 +639,7 @@ async def main():
     await app.start()
     print("✅ Bot started successfully!")
     
-    # Start background tasks
+    # Start background tasks for dbroadcast
     asyncio.create_task(cleanup_temporary_broadcasts())
     print("✅ Background tasks started!")
     
@@ -702,7 +664,6 @@ async def main():
     print("\n🛠️ Admin Commands:")
     print("• /stats - Show bot statistics")
     print("• /status - Show system status")
-    print("• /restart - Restart the bot")
     print("• /broadcast - Broadcast message (reply)")
     print("• /dbroadcast - Temporary broadcast (reply with time)")
     print("• /clean_broadcasts - Clean expired broadcasts")
