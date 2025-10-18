@@ -5,16 +5,19 @@ from database import (
     add_user, add_group, all_users, all_groups,
     ban_user, unban_user, is_user_banned, get_banned_users,
     get_disabled_broadcast_users, set_welcome_message, get_welcome_message,
-    users_collection, channels_collection as groups_collection
+    users_collection, channels_collection as groups_collection,
+    add_temporary_broadcast, get_expired_broadcasts, remove_temporary_broadcast,
+    store_user_message, get_user_message_info
 )
 from config import cfg
 import asyncio
 import time
 import psutil
-from datetime import datetime
+from datetime import datetime, timedelta
 import sys
 import os
 from config import *
+import re
 
 app = Client(
     "approver",
@@ -25,7 +28,7 @@ app = Client(
 
 # Global variables
 START_TIME = time.time()
-LOG_CHANNEL = -1002446826368 # Replace with your actual log channel ID
+LOG_CHANNEL = -1002446826368  # Replace with your actual log channel ID
 
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Helper Functions ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -44,7 +47,41 @@ def get_system_stats():
         return f"🖥 CPU: {cpu}% | RAM: {mem}%"
     except:
         return "⚠️ System stats unavailable"
+
+def parse_time(time_str):
+    """Parse time string like 1h, 30m, 2d into seconds"""
+    time_units = {
+        's': 1,
+        'm': 60,
+        'h': 3600,
+        'd': 86400
+    }
+    
+    match = re.match(r'^(\d+)([smhd])$', time_str.lower())
+    if match:
+        value, unit = match.groups()
+        return int(value) * time_units[unit]
+    return None
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Background Tasks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async def cleanup_temporary_broadcasts():
+    """Background task to clean up expired broadcasts"""
+    while True:
+        try:
+            expired_broadcasts = get_expired_broadcasts()
+            for broadcast in expired_broadcasts:
+                try:
+                    await app.delete_messages(LOG_CHANNEL, broadcast["message_id"])
+                    remove_temporary_broadcast(broadcast["message_id"])
+                except Exception as e:
+                    print(f"Failed to delete broadcast: {e}")
+                    remove_temporary_broadcast(broadcast["message_id"])
+        except Exception as e:
+            print(f"Error in cleanup task: {e}")
         
+        await asyncio.sleep(60)  # Check every minute
+
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Welcome & Logging ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.private & filters.command("start"))
@@ -112,20 +149,14 @@ async def start(_, m: Message):
     ),
     reply_markup=keyboard,
     )
+
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Callback Query Handler ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_callback_query(filters.regex("^check_again$"))
 async def check_again_callback(_, query: CallbackQuery):
     await query.message.delete()
     await query.message.reply("<b>ᴄʟɪᴄᴋ /start ᴛᴏ ᴄʜᴇᴄᴋ ʏᴏᴜ ᴀʀᴇ ᴊᴏɪɴᴇᴅ</b>")
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ pic ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#START_MSG = """<b>🤗 Hello {first}!</b>
 
-#<b>🚀 I am the <u>FASTEST BOT</u>, faster than light ⚡! I approve join requests in just 0.5 seconds.</b>
-
-#<blockquote><b>I'm an auto-approve <a href="https://t.me/telegram/153">Admin Join Requests</a> Bot. I can approve users in Groups/Channels. Add me to your chat and promote me to admin with 'Add Members' permission.</b></blockquote>
-
-#<b>Powered By : <a href="https://t.me/World_Fastest_Bots">@World_Fastest_Bots</a></b>"""
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Approve Requests ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_chat_join_request(filters.group | filters.channel)
@@ -159,7 +190,7 @@ async def approve(_, m: Message):
     except Exception as e:  
         print(str(e))
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ New Fretures  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ New Features ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("restart") & filters.user(cfg.SUDO))
 async def restart_bot(_, m: Message):
@@ -179,6 +210,123 @@ async def show_status(_, m: Message):
         f"⏱ Uptime: `{format_uptime(time.time() - START_TIME)}`\n"
         f"🕒 Started: `{datetime.fromtimestamp(START_TIME).strftime('%Y-%m-%d %H:%M')}`"
     )
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Temporary Broadcast Feature ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.command("dbroadcast") & filters.user(cfg.SUDO) & filters.reply)
+async def temporary_broadcast(_, m: Message):
+    if not m.reply_to_message:
+        await m.reply("⚠️ Please reply to a message to broadcast it temporarily!")
+        return
+
+    if len(m.command) < 2:
+        await m.reply("⚠️ Please provide time duration (e.g., 1h, 30m, 2d)")
+        return
+
+    time_str = m.command[1]
+    duration_seconds = parse_time(time_str)
+    
+    if not duration_seconds:
+        await m.reply("❌ Invalid time format! Use: 1h, 30m, 2d, etc.")
+        return
+
+    delete_time = datetime.now() + timedelta(seconds=duration_seconds)
+    broadcast_msg = m.reply_to_message
+
+    # Get all users except banned and disabled broadcast users  
+    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  
+    disabled_users = get_disabled_broadcast_users()  
+    banned_users = get_banned_users()  
+
+    success = 0  
+    failed = 0  
+    sent_messages = []
+
+    # Send the message to all users  
+    for user_id in all_users_list:  
+        if user_id not in disabled_users and user_id not in banned_users:  
+            try:  
+                sent_msg = await broadcast_msg.copy(user_id)  
+                sent_messages.append(sent_msg.id)
+                success += 1  
+            except Exception as e:  
+                print(f"Failed to send message to {user_id}: {e}")  
+                failed += 1  
+            await asyncio.sleep(0.1)
+
+    # Store broadcast info for cleanup
+    for msg_id in sent_messages:
+        add_temporary_broadcast(msg_id, delete_time)
+
+    # Send broadcast stats to the admin  
+    stats_msg = await m.reply(  
+        f"⏰ **Temporary Broadcast Sent!**\n\n"  
+        f"✅ Success: `{success}`\n"  
+        f"❌ Failed: `{failed}`\n"  
+        f"⏳ Will be deleted in: `{time_str}`"  
+    )
+
+    # Schedule deletion of stats message
+    await asyncio.sleep(duration_seconds)
+    try:
+        await stats_msg.delete()
+    except:
+        pass
+
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ User Message Forwarding & Reply System ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.private & ~filters.command(["start", "stats", "broadcast", "dbroadcast", "ban", "unban", "restart", "status"]))
+async def forward_user_message(_, m: Message):
+    user_id = m.from_user.id
+    
+    if is_user_banned(user_id):
+        return
+
+    # Forward user message to log channel
+    try:
+        forwarded_msg = await m.forward(LOG_CHANNEL)
+        
+        # Store message info for reply system
+        store_user_message(user_id, m.id, forwarded_msg.id)
+        
+        # Send info about the user
+        user_info = f"**💬 New Message from User**\n\n"
+        user_info += f"👤 **User:** {m.from_user.mention}\n"
+        user_info += f"🆔 **ID:** `{m.from_user.id}`\n"
+        if m.from_user.username:
+            user_info += f"📱 **Username:** @{m.from_user.username}\n"
+        user_info += f"⏰ **Time:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        user_info += "**💡 Reply to this message to respond to the user!**"
+        
+        await app.send_message(LOG_CHANNEL, user_info, reply_to_message_id=forwarded_msg.id)
+        
+    except Exception as e:
+        print(f"Failed to forward user message: {e}")
+
+@app.on_message(filters.chat(LOG_CHANNEL) & filters.reply & filters.user(cfg.SUDO))
+async def reply_to_user(_, m: Message):
+    try:
+        replied_msg = m.reply_to_message
+        
+        # Get user message info from database
+        user_message_info = get_user_message_info(replied_msg.id)
+        
+        if user_message_info:
+            user_id = user_message_info["user_id"]
+            
+            # Send the reply to the user
+            if m.text:
+                await app.send_message(user_id, f"**💌 Admin Reply:**\n\n{m.text}")
+            elif m.media:
+                await m.copy(user_id, caption=f"**💌 Admin Reply:**\n\n{m.caption}" if m.caption else None)
+            
+            await m.reply("✅ Reply sent to user!")
+        else:
+            await m.reply("❌ Could not find user information for this message.")
+            
+    except Exception as e:
+        await m.reply(f"❌ Failed to send reply: {e}")
+
 #━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
@@ -262,39 +410,43 @@ async def show_banned_users(_, m: Message):
 
 @app.on_message(filters.command("broadcast") & filters.user(cfg.SUDO) & filters.reply)
 async def broadcast_message(_, m: Message):
-    # Check if the command is used as a reply
     if not m.reply_to_message:
         await m.reply("⚠️ Please reply to a message to broadcast it!")
         return
 
-    # Get the replied message  
     broadcast_msg = m.reply_to_message  
 
-    # Get all users except banned and disabled broadcast users  
-    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  # Fetch all unique user IDs from MongoDB  
-    disabled_users = get_disabled_broadcast_users()  # Fetch disabled broadcast users  
-    banned_users = get_banned_users()  # Fetch banned users  
+    all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))  
+    disabled_users = get_disabled_broadcast_users()  
+    banned_users = get_banned_users()  
 
     success = 0  
     failed = 0  
 
-    # Send the message to all users  
     for user_id in all_users_list:  
         if user_id not in disabled_users and user_id not in banned_users:  
             try:  
-                await broadcast_msg.copy(user_id)  # Send the message only once  
+                await broadcast_msg.copy(user_id)  
                 success += 1  
             except Exception as e:  
                 print(f"Failed to send message to {user_id}: {e}")  
                 failed += 1  
-        await asyncio.sleep(0.1)  # To avoid flooding  
+        await asyncio.sleep(0.1)
 
-    # Send broadcast stats to the admin  
     await m.reply(  
         f"📢 **Broadcast Completed!**\n\n"  
         f"✅ Success: `{success}`\n"  
         f"❌ Failed: `{failed}`"  
     )
 
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Start Background Tasks ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+@app.on_message(filters.command("start_tasks") & filters.user(cfg.SUDO))
+async def start_background_tasks(_, m: Message):
+    asyncio.create_task(cleanup_temporary_broadcasts())
+    await m.reply("✅ Background tasks started!")
+
 print("Bot is running!")
+# Start background tasks when bot starts
+asyncio.create_task(cleanup_temporary_broadcasts())
 app.run()
