@@ -3,7 +3,7 @@ from os import getenv
 from datetime import datetime, timedelta
 
 # Load MongoDB URI from environment variables
-MONGO_URI = getenv("MONGO_URI", "mongodb+srv://request:Requestbot0123@cluster0.zncwjjj.mongodb.net/?appName=Cluster0")
+MONGO_URI = getenv("MONGO_URI", "")
 
 class MongoDB:
     def __init__(self, uri):
