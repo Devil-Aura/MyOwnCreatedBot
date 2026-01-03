@@ -289,42 +289,60 @@ async def approve(_, m: Message):
         except Exception as e:
             print(f"Failed to send approval log: {e}")
 
-        # Send welcome message with error handling
-        welcome_msg = get_welcome_message(chat.id) or """**🎉 ᴡᴇʟᴄᴏᴍᴇ, {user_mention}!
-        ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴛᴏ ᴊᴏɪɴ {chat_title} ʜᴀs ʙᴇᴇɴ ᴀᴘᴘʀᴏᴠᴇᴅ! 🚀
-        /start ᴛᴏ ᴜsᴇ ᴍᴇ...!!**"""
+        # Add user to database so bot 'meets' them before sending message
+        add_user(user.id)
         
-        try:
-            await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
-            # Log successful welcome message to REQ_CHANNEL
+        # Small delay to allow Telegram to process the approval/new contact
+        await asyncio.sleep(1)
+
+        # Send welcome message with rate limiting
+        from database import can_send_welcome, set_welcome_sent
+        if can_send_welcome(user.id):
+            welcome_msg = get_welcome_message(chat.id) or """**🎉 ᴡᴇʟᴄᴏᴍᴇ, {user_mention}!
+            ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴛᴏ ᴊᴏɪɴ {chat_title} ʜᴀs ʙᴇᴇɴ ᴀᴘᴘʀᴏᴠᴇᴅ! 🚀
+            /start ᴛᴏ ᴜsᴇ ᴍᴇ...!!**"""
+            
             try:
-                await app.send_message(
-                    REQ_CHANNEL,
-                    f"**💌 ᴡᴇʟᴄᴏᴍᴇ ᴍᴇssᴀɢᴇ sᴇɴᴛ**\n\n"
-                    f"**👤 ᴛᴏ:** {user.mention}\n"
-                    f"**🆔 ɪᴅ:** `{user.id}`\n"
-                    f"**📱 ᴜsᴇʀɴᴀᴍᴇ:** @{username}\n"
-                    f"**📢 ᴄʜᴀᴛ:** {chat.title}\n"
-                    f"**🔗 ʟɪɴᴋ:** {invite_link if invite_link != 'Not Available' else 'ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ'}"
-                )
-            except:
-                pass
-        except UserIsBlocked:
-            # Log blocked user to REQ_CHANNEL
-            try:
-                await app.send_message(
-                    REQ_CHANNEL,
-                    f"**🚫 ᴜsᴇʀ ʙʟᴏᴄᴋᴇᴅ ʙᴏᴛ**\n\n"
-                    f"**👤 ᴜsᴇʀ:** {user.mention}\n"
-                    f"**🆔 ɪᴅ:** `{user.id}`\n"
-                    f"**📱 ᴜsᴇʀɴᴀᴍᴇ:** @{username}\n"
-                    f"**📢 ᴄʜᴀᴛ:** {chat.title}\n"
-                    f"**❌ ᴡᴇʟᴄᴏᴍᴇ ᴍᴇssᴀɢᴇ ɴᴏᴛ sᴇɴᴛ**"
-                )
-            except:
-                pass
-        except Exception as e:
-            print(f"Error sending welcome message: {e}")
+                # Attempt to send message, handle peer id invalid by retrying once after a longer delay
+                try:
+                    await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
+                except (PeerIdInvalid, PeerIdInvalid):
+                    print(f"PeerIdInvalid for {user.id}, retrying after 3s...")
+                    await asyncio.sleep(3)
+                    await app.send_message(user.id, welcome_msg.format(user_mention=user.mention, chat_title=chat.title))
+                
+                set_welcome_sent(user.id)
+                # Log successful welcome message to REQ_CHANNEL
+                try:
+                    await app.send_message(
+                        REQ_CHANNEL,
+                        f"**💌 ᴡᴇʟᴄᴏᴍᴇ ᴍᴇssᴀɢᴇ sᴇɴᴛ**\n\n"
+                        f"**👤 ᴛᴏ:** {user.mention}\n"
+                        f"**🆔 ɪᴅ:** `{user.id}`\n"
+                        f"**📱 ᴜsᴇʀɴᴀᴍᴇ:** @{username}\n"
+                        f"**📢 ᴄʜᴀᴛ:** {chat.title}\n"
+                        f"**🔗 ʟɪɴᴋ:** {invite_link if invite_link != 'Not Available' else 'ɴᴏᴛ ᴀᴠᴀɪʟᴀʙʟᴇ'}"
+                    )
+                except:
+                    pass
+            except UserIsBlocked:
+                # Log blocked user to REQ_CHANNEL
+                try:
+                    await app.send_message(
+                        REQ_CHANNEL,
+                        f"**🚫 ᴜsᴇʀ ʙʟᴏᴄᴋᴇᴅ ʙᴏᴛ**\n\n"
+                        f"**👤 ᴜsᴇʀ:** {user.mention}\n"
+                        f"**🆔 ɪᴅ:** `{user.id}`\n"
+                        f"**📱 ᴜsᴇʀɴᴀᴍᴇ:** @{username}\n"
+                        f"**📢 ᴄʜᴀᴛ:** {chat.title}\n"
+                        f"**❌ ᴡᴇʟᴄᴏᴍᴇ ᴍᴇssᴀɢᴇ ɴᴏᴛ sᴇɴᴛ**"
+                    )
+                except:
+                    pass
+            except Exception as e:
+                print(f"Error sending welcome message: {e}")
+        else:
+            print(f"Welcome message skipped for {user.id} (rate limited)")
 
         add_user(user.id)  
         
@@ -335,7 +353,26 @@ async def approve(_, m: Message):
     except Exception as e:  
         print(f"Error in approval: {e}")
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Bot Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+@app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
+async def stats(_, m: Message):
+    from database import all_users, all_groups, get_banned_users, get_disabled_broadcast_users, get_all_pending_broadcasts, users_collection
+    
+    total_users = all_users()
+    total_groups = all_groups()
+    banned_users = len(get_banned_users())
+    disabled_broadcasts = len(get_disabled_broadcast_users())
+    pending_broadcasts = len(get_all_pending_broadcasts())
+    
+    db_status = "MongoDB ✅" if users_collection is not None else "SQLite 📁 (MongoDB Failed)"
+
+    await m.reply_text(  
+        f"**📊 ʙᴏᴛ sᴛᴀᴛs ({db_status})**\n\n"  
+        f"**👥 ᴛᴏᴛᴀʟ ᴜsᴇʀs:** `{total_users}`\n"  
+        f"**📢 ᴛᴏᴛᴀʟ ɢʀᴏᴜᴘs:** `{total_groups}`\n"  
+        f"**🚫 ʙᴀɴɴᴇᴅ ᴜsᴇʀs:** `{banned_users}`\n"  
+        f"**🔕 ᴅɪsᴀʙʟᴇᴅ ʙʀᴏᴀᴅᴄᴀsᴛs:** `{disabled_broadcasts}`\n"
+        f"**⏰ ᴘᴇɴᴅɪɴɢ ᴛᴇᴍᴘ ʙʀᴏᴀᴅᴄᴀsᴛs:** `{pending_broadcasts}`"  
+    )
 
 @app.on_message(filters.command("status") & filters.user(cfg.SUDO))
 async def show_status(_, m: Message):
@@ -362,27 +399,11 @@ async def broadcast_message(_, m: Message):
     processing_msg = await m.reply("**🔄 sᴛᴀʀᴛɪɴɢ ʙʀᴏᴀᴅᴄᴀsᴛ...**")
 
     # Get all users
-    all_users_list = []
+    all_users_list = get_all_users()
     
-    # Try MongoDB first
-    if users_collection:
-        try:
-            all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))
-        except:
-            pass
-    
-    # If MongoDB fails, use SQLite
     if not all_users_list:
-        try:
-            import sqlite3
-            conn = sqlite3.connect("bot_database.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM users")
-            all_users_list = [row[0] for row in cursor.fetchall()]
-            conn.close()
-        except:
-            await processing_msg.edit("**❌ ғᴀɪʟᴇᴅ ᴛᴏ ɢᴇᴛ ᴜsᴇʀ ʟɪsᴛ ғʀᴏᴍ ᴅᴀᴛᴀʙᴀsᴇ**")
-            return
+        await processing_msg.edit("**❌ No users found in database.**")
+        return
 
     disabled_users = get_disabled_broadcast_users()  
     banned_users = get_banned_users()  
@@ -445,25 +466,11 @@ async def temporary_broadcast(_, m: Message):
     processing_msg = await m.reply("**🔄 sᴛᴀʀᴛɪɴɢ ᴛᴇᴍᴘᴏʀᴀʀʏ ʙʀᴏᴀᴅᴄᴀsᴛ...**")
 
     # Get all users
-    all_users_list = []
-    
-    if users_collection:
-        try:
-            all_users_list = list(set([user["user_id"] for user in users_collection.find({})]))
-        except:
-            pass
+    all_users_list = get_all_users()
     
     if not all_users_list:
-        try:
-            import sqlite3
-            conn = sqlite3.connect("bot_database.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM users")
-            all_users_list = [row[0] for row in cursor.fetchall()]
-            conn.close()
-        except:
-            await processing_msg.edit("**❌ ғᴀɪʟᴇᴅ ᴛᴏ ɢᴇᴛ ᴜsᴇʀ ʟɪsᴛ ғʀᴏᴍ ᴅᴀᴛᴀʙᴀsᴇ**")
-            return
+        await processing_msg.edit("**❌ No users found in database.**")
+        return
 
     disabled_users = get_disabled_broadcast_users()  
     banned_users = get_banned_users()  
@@ -477,6 +484,7 @@ async def temporary_broadcast(_, m: Message):
     for user_id in all_users_list:  
         if user_id not in disabled_users and user_id not in banned_users:  
             try:  
+                # copy() preserves everything: text, media, captions, formatting, and inline keyboards
                 sent_msg = await broadcast_msg.copy(user_id)  
                 
                 # Store in database with deletion time - SURVIVES BOT RESTART
@@ -524,24 +532,33 @@ async def temporary_broadcast(_, m: Message):
     except:
         pass
 
-#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Admin Management Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Toggle Commands ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-@app.on_message(filters.command("stats") & filters.user(cfg.SUDO))
-async def stats(_, m: Message):
-    total_users = all_users()
-    total_groups = all_groups()
-    banned_users = len(get_banned_users())
-    disabled_broadcasts = len(get_disabled_broadcast_users())
-    pending_broadcasts = len(get_all_pending_broadcasts())
+@app.on_message(filters.command("disable_broadcast") & filters.user(cfg.SUDO))
+async def disable_broadcast_cmd(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("**⚠️ Provide User ID to disable broadcast.**")
+        return
+    try:
+        user_id = int(m.command[1])
+        from database import disable_broadcast
+        disable_broadcast(user_id)
+        await m.reply(f"**✅ Broadcast/DBroadcast disabled for user `{user_id}`.**")
+    except ValueError:
+        await m.reply("**❌ Invalid User ID.**")
 
-    await m.reply_text(  
-        f"**📊 ʙᴏᴛ sᴛᴀᴛs**\n\n"  
-        f"**👥 ᴛᴏᴛᴀʟ ᴜsᴇʀs:** `{total_users}`\n"  
-        f"**📢 ᴛᴏᴛᴀʟ ɢʀᴏᴜᴘs:** `{total_groups}`\n"  
-        f"**🚫 ʙᴀɴɴᴇᴅ ᴜsᴇʀs:** `{banned_users}`\n"  
-        f"**🔕 ᴅɪsᴀʙʟᴇᴅ ʙʀᴏᴀᴅᴄᴀsᴛs:** `{disabled_broadcasts}`\n"
-        f"**⏰ ᴘᴇɴᴅɪɴɢ ᴛᴇᴍᴘ ʙʀᴏᴀᴅᴄᴀsᴛs:** `{pending_broadcasts}`"  
-    )
+@app.on_message(filters.command("enable_broadcast") & filters.user(cfg.SUDO))
+async def enable_broadcast_cmd(_, m: Message):
+    if len(m.command) < 2:
+        await m.reply("**⚠️ Provide User ID to enable broadcast.**")
+        return
+    try:
+        user_id = int(m.command[1])
+        from database import enable_broadcast
+        enable_broadcast(user_id)
+        await m.reply(f"**✅ Broadcast/DBroadcast enabled for user `{user_id}`.**")
+    except ValueError:
+        await m.reply("**❌ Invalid User ID.**")
 
 @app.on_message(filters.command("clean_broadcasts") & filters.user(cfg.SUDO))
 async def clean_broadcasts(_, m: Message):
