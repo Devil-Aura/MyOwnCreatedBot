@@ -17,7 +17,7 @@ class Config:
     # MongoDB Database URI
     MONGO_URI = getenv(
         "MONGO_URI",
-        "mongodb+srv://ajedvwess_db_user:pU3egnmZuEuHvWsd@cluster0.bflbyzu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+        ""
     )
     FLASK_PORT = int(getenv("FLASK_PORT", "9068"))
     
