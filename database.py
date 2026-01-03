@@ -1,105 +1,55 @@
-import sqlite3
 from pymongo import MongoClient
 from os import getenv
 from datetime import datetime, timedelta
 
 # Load MongoDB URI from environment variables
-MONGO_URI = getenv("MONGO_URI", "mongodb+srv://ajedvwess_db_user:pU3egnmZuEuHvWsd@cluster0.bflbyzu.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+MONGO_URI = getenv("MONGO_URI", "mongodb+srv://request:Requestbot0123@cluster0.zncwjjj.mongodb.net/?appName=Cluster0")
 
-# Connect to MongoDB with SSL disabled
-try:
-    client = MongoClient(
-        MONGO_URI, 
-        ssl=False,  # Disable SSL
-        connectTimeoutMS=30000,
-        socketTimeoutMS=30000,
-        serverSelectionTimeoutMS=30000
-    )
-    # Test connection
-    client.admin.command('ismaster')
-    print("✅ MongoDB connected successfully!")
-except Exception as e:
-    print(f"❌ MongoDB connection failed: {e}")
-    client = None
+class MongoDB:
+    def __init__(self, uri):
+        try:
+            self.client = MongoClient(
+                uri, 
+                tls=True,
+                connectTimeoutMS=30000,
+                socketTimeoutMS=30000,
+                serverSelectionTimeoutMS=30000
+            )
+            self.client.admin.command('ping')
+            self.db = self.client.get_database("Cluster0")
+            print("✅ MongoDB connected successfully!")
+        except Exception as e:
+            print(f"❌ MongoDB connection failed: {e}")
+            self.client = None
+            self.db = None
 
-if client:
-    db = client["Cluster0"]
-else:
-    db = None
+        if self.db is not None:
+            self.users = self.db["users"]
+            self.channels = self.db["channels"]
+            self.temp_broadcasts = self.db["temporary_broadcasts"]
+            self.user_messages = self.db["user_messages"]
+            self.welcome_limit = self.db["welcome_limit"]
+            self.banned_users = self.db["banned_users"]
+            self.welcome_messages = self.db["welcome_messages"]
+        else:
+            self.users = None
+            self.channels = None
+            self.temp_broadcasts = None
+            self.user_messages = None
+            self.welcome_limit = None
+            self.banned_users = None
+            self.welcome_messages = None
 
-# Collections
-if db:
-    users_collection = db["users"]
-    channels_collection = db["channels"]
-    temporary_broadcasts_collection = db["temporary_broadcasts"]
-    user_messages_collection = db["user_messages"]
-else:
-    # Fallback to empty collections if MongoDB fails
-    users_collection = None
-    channels_collection = None
-    temporary_broadcasts_collection = None
-    user_messages_collection = None
-
-# Define DB Name for SQLite
-DB_NAME = "bot_database.db"
-
-# Create Tables
-def create_tables():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
-    # Users Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Groups/Channels Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS groups (
-            chat_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Disabled Broadcast Users
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS disabled_broadcast (
-            user_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Banned Users Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS banned_users (
-            user_id INTEGER PRIMARY KEY
-        )
-    """)
-
-    # Welcome Messages Table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS welcome_messages (
-            chat_id INTEGER PRIMARY KEY,
-            message TEXT
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+mongo = MongoDB(MONGO_URI)
+users_collection = mongo.users
+channels_collection = mongo.channels
 
 #━━━━━━━━━━━━━━━━━━━━━━━ User Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def add_user(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
-    conn.commit()
-    conn.close()
-
-    # Add to MongoDB if available
-    if users_collection:
+    if mongo.users is not None:
         try:
-            users_collection.update_one(
+            mongo.users.update_one(
                 {"user_id": user_id},
                 {"$set": {"user_id": user_id, "joined_at": datetime.now()}},
                 upsert=True
@@ -108,65 +58,34 @@ def add_user(user_id):
             print(f"MongoDB error in add_user: {e}")
 
 def remove_user(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    if mongo.users is not None:
+        try:
+            mongo.users.delete_one({"user_id": user_id})
+        except Exception as e:
+            print(f"MongoDB error in remove_user: {e}")
 
 def all_users():
-    # Try MongoDB first, fallback to SQLite
-    if users_collection:
+    if mongo.users is not None:
         try:
-            return users_collection.count_documents({})
+            return mongo.users.count_documents({})
         except:
-            pass
-    
-    # Fallback to SQLite
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM users")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+            return 0
+    return 0
 
 def get_all_users():
-    """Get all user IDs from both databases"""
-    users = []
-    
-    # Try MongoDB first
-    if users_collection:
+    if mongo.users is not None:
         try:
-            users = list(set([user["user_id"] for user in users_collection.find({})]))
+            return [user["user_id"] for user in mongo.users.find({})]
         except:
-            pass
-    
-    # If MongoDB fails or empty, use SQLite
-    if not users:
-        try:
-            conn = sqlite3.connect(DB_NAME)
-            cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM users")
-            users = [row[0] for row in cursor.fetchall()]
-            conn.close()
-        except:
-            pass
-    
-    return users
+            return []
+    return []
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Group/Channel Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None, user_url=None):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO groups (chat_id) VALUES (?)", (chat_id,))
-    conn.commit()
-    conn.close()
-
-    # Add to MongoDB if available
-    if channels_collection:
+    if mongo.channels is not None:
         try:
-            channels_collection.update_one(
+            mongo.channels.update_one(
                 {"chat_id": chat_id},
                 {"$set": {
                     "user_id": user_id,
@@ -184,28 +103,19 @@ def add_group(chat_id, user_id, chat_title, chat_url, chat_type, username=None, 
             print(f"MongoDB error in add_group: {e}")
 
 def all_groups():
-    # Try MongoDB first, fallback to SQLite
-    if channels_collection:
+    if mongo.channels is not None:
         try:
-            return channels_collection.count_documents({})
+            return mongo.channels.count_documents({})
         except:
-            pass
-    
-    # Fallback to SQLite
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM groups")
-    count = cursor.fetchone()[0]
-    conn.close()
-    return count
+            return 0
+    return 0
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Persistent Temporary Broadcast Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def add_persistent_broadcast(user_id, message_id, delete_time, original_broadcast_time):
-    """Store broadcast with original time to survive bot restarts"""
-    if temporary_broadcasts_collection:
+    if mongo.temp_broadcasts is not None:
         try:
-            temporary_broadcasts_collection.update_one(
+            mongo.temp_broadcasts.update_one(
                 {"user_id": user_id, "message_id": message_id},
                 {"$set": {
                     "user_id": user_id,
@@ -220,47 +130,41 @@ def add_persistent_broadcast(user_id, message_id, delete_time, original_broadcas
             print(f"MongoDB error in add_persistent_broadcast: {e}")
 
 def get_all_pending_broadcasts():
-    """Get all broadcasts that haven't been deleted yet"""
-    if not temporary_broadcasts_collection:
+    if mongo.temp_broadcasts is None:
         return []
-    
     try:
         now = datetime.now()
-        return list(temporary_broadcasts_collection.find({"delete_time": {"$gt": now}}))
+        return list(mongo.temp_broadcasts.find({"delete_time": {"$gt": now}}))
     except Exception as e:
         print(f"MongoDB error in get_all_pending_broadcasts: {e}")
         return []
 
 def get_expired_broadcasts():
-    """Get broadcasts that are ready for deletion"""
-    if not temporary_broadcasts_collection:
+    if mongo.temp_broadcasts is None:
         return []
-    
     try:
         now = datetime.now()
-        return list(temporary_broadcasts_collection.find({"delete_time": {"$lte": now}}))
+        return list(mongo.temp_broadcasts.find({"delete_time": {"$lte": now}}))
     except Exception as e:
         print(f"MongoDB error in get_expired_broadcasts: {e}")
         return []
 
 def remove_temporary_broadcast(message_id, user_id=None):
-    """Remove broadcast record after deletion - CLEANS DATABASE LOGS"""
-    if temporary_broadcasts_collection:
+    if mongo.temp_broadcasts is not None:
         try:
             if user_id:
-                temporary_broadcasts_collection.delete_one({"message_id": message_id, "user_id": user_id})
+                mongo.temp_broadcasts.delete_one({"message_id": message_id, "user_id": user_id})
             else:
-                temporary_broadcasts_collection.delete_one({"message_id": message_id})
-            print(f"🗑️ Database record cleaned for message: {message_id}")
+                mongo.temp_broadcasts.delete_one({"message_id": message_id})
         except Exception as e:
             print(f"MongoDB error in remove_temporary_broadcast: {e}")
 
 #━━━━━━━━━━━━━━━━━━━━━━━ User Message Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def store_user_message(user_id, message_id, log_message_id):
-    if user_messages_collection:
+    if mongo.user_messages is not None:
         try:
-            user_messages_collection.insert_one({
+            mongo.user_messages.insert_one({
                 "user_id": user_id,
                 "user_message_id": message_id,
                 "log_message_id": log_message_id,
@@ -270,109 +174,131 @@ def store_user_message(user_id, message_id, log_message_id):
             print(f"MongoDB error in store_user_message: {e}")
 
 def get_user_message_info(log_message_id):
-    if not user_messages_collection:
+    if mongo.user_messages is None:
         return None
-    
     try:
-        return user_messages_collection.find_one({"log_message_id": log_message_id})
+        return mongo.user_messages.find_one({"log_message_id": log_message_id})
     except Exception as e:
         print(f"MongoDB error in get_user_message_info: {e}")
         return None
 
+#━━━━━━━━━━━━━━━━━━━━━━━ Welcome Limit Management ━━━━━━━━━━━━━━━━━━━━━━━
+
+def can_send_welcome(user_id):
+    if mongo.welcome_limit is None:
+        return True
+    try:
+        limit = mongo.welcome_limit.find_one({"user_id": user_id})
+        if not limit:
+            return True
+        last_sent = limit["last_sent"]
+        if datetime.now() - last_sent > timedelta(hours=3):
+            return True
+        return False
+    except:
+        return True
+
+def set_welcome_sent(user_id):
+    if mongo.welcome_limit is not None:
+        try:
+            mongo.welcome_limit.update_one(
+                {"user_id": user_id},
+                {"$set": {"last_sent": datetime.now()}},
+                upsert=True
+            )
+        except:
+            pass
+
 #━━━━━━━━━━━━━━━━━━━━━━━ Broadcast Control ━━━━━━━━━━━━━━━━━━━━━━━
 
 def disable_broadcast(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO disabled_broadcast (user_id) VALUES (?)", (user_id,))
-    conn.commit()
-    conn.close()
+    if mongo.users is not None:
+        try:
+            mongo.users.update_one({"user_id": user_id}, {"$set": {"broadcast_disabled": True}}, upsert=True)
+        except: pass
 
 def enable_broadcast(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM disabled_broadcast WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    if mongo.users is not None:
+        try:
+            mongo.users.update_one({"user_id": user_id}, {"$set": {"broadcast_disabled": False}}, upsert=True)
+        except: pass
 
 def is_broadcast_disabled(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM disabled_broadcast WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
+    if mongo.users is not None:
+        try:
+            user = mongo.users.find_one({"user_id": user_id})
+            if user and user.get("broadcast_disabled"):
+                return True
+        except: pass
+    return False
 
 def get_disabled_broadcast_users():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM disabled_broadcast")
-    users = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return users
+    if mongo.users is not None:
+        try:
+            return [user["user_id"] for user in mongo.users.find({"broadcast_disabled": True})]
+        except:
+            return []
+    return []
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Ban Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def ban_user(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO banned_users (user_id) VALUES (?)", (user_id,))
-    conn.commit()
-    conn.close()
+    if mongo.banned_users is not None:
+        try:
+            mongo.banned_users.update_one({"user_id": user_id}, {"$set": {"user_id": user_id}}, upsert=True)
+        except: pass
 
 def unban_user(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM banned_users WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
+    if mongo.banned_users is not None:
+        try:
+            mongo.banned_users.delete_one({"user_id": user_id})
+        except: pass
 
 def is_user_banned(user_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM banned_users WHERE user_id = ?", (user_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
+    if mongo.banned_users is not None:
+        try:
+            return mongo.banned_users.find_one({"user_id": user_id}) is not None
+        except:
+            return False
+    return False
 
 def get_banned_users():
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM banned_users")
-    users = [row[0] for row in cursor.fetchall()]
-    conn.close()
-    return users
+    if mongo.banned_users is not None:
+        try:
+            return [user["user_id"] for user in mongo.banned_users.find({})]
+        except:
+            return []
+    return []
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Welcome Message Management ━━━━━━━━━━━━━━━━━━━━━━━
 
 def set_welcome_message(chat_id, message):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO welcome_messages (chat_id, message) VALUES (?, ?)
-        ON CONFLICT(chat_id) DO UPDATE SET message = ?
-    """, (chat_id, message, message))
-    conn.commit()
-    conn.close()
+    if mongo.welcome_messages is not None:
+        try:
+            mongo.welcome_messages.update_one(
+                {"chat_id": chat_id},
+                {"$set": {"message": message}},
+                upsert=True
+            )
+        except: pass
 
 def get_welcome_message(chat_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT message FROM welcome_messages WHERE chat_id = ?", (chat_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result[0] if result else None
+    if mongo.welcome_messages is not None:
+        try:
+            res = mongo.welcome_messages.find_one({"chat_id": chat_id})
+            return res["message"] if res else None
+        except:
+            return None
+    return None
 
 #━━━━━━━━━━━━━━━━━━━━━━━ User-Channel Tracking ━━━━━━━━━━━━━━━━━━━━━━━
 
 def get_user_channels():
-    if not channels_collection:
+    if not mongo.channels:
         return {}
-    
     try:
-        user_channels = channels_collection.find({})
+        user_channels = mongo.channels.find({})
         channels = {}
-
         for channel in user_channels:
             user_id = channel["user_id"]
             chat_title = channel["chat_title"]
@@ -380,7 +306,6 @@ def get_user_channels():
             chat_type = channel.get("type", "unknown")
             username = channel.get("username", f"User-{user_id}")
             user_url = channel.get("user_url", f"https://t.me/{username}")
-
             if user_id not in channels:
                 channels[user_id] = {
                     "username": username,
@@ -390,18 +315,10 @@ def get_user_channels():
                     "channels": [],
                     "groups": []
                 }
-
             if chat_type == "channel":
-                channels[user_id]["channels"].append({
-                    "chat_title": chat_title,
-                    "chat_url": chat_url
-                })
+                channels[user_id]["channels"].append({"chat_title": chat_title, "chat_url": chat_url})
             elif chat_type == "group":
-                channels[user_id]["groups"].append({
-                    "chat_title": chat_title,
-                    "chat_url": chat_url
-                })
-
+                channels[user_id]["groups"].append({"chat_title": chat_title, "chat_url": chat_url})
         return channels
     except Exception as e:
         print(f"MongoDB error in get_user_channels: {e}")
@@ -409,5 +326,4 @@ def get_user_channels():
 
 #━━━━━━━━━━━━━━━━━━━━━━━ Initialize Database ━━━━━━━━━━━━━━━━━━━━━━━
 
-create_tables()
-print("✅ Database initialized successfully!")
+print("✅ Bot is now using MongoDB 100% with improved reliability!")
